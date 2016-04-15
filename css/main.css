@@ -40,6 +40,30 @@ p.label {
     display: inline-table;
 }
 
+p.result-label {
+    font-weight: bold;
+    text-align: left;
+    padding-left: 30px;
+    width: 175px;
+    display: inline-table;
+    margin-bottom: 8px;
+    margin-top: 2px;
+}
+
+p.value {
+    text-align: left;
+    padding-left: 30px;
+    display: inline-table;
+    margin-bottom: 8px;
+    margin-top: 2px;
+}
+
+p.heading {
+    font-weight: bold;
+    text-align: left;
+    padding-left: 30px;
+}
+
 div.selected-mode {
     display: block;
     border: 2px solid deepskyblue;
@@ -105,4 +129,43 @@ li.tabbed {
     cursor: pointer;
     border-radius: 5pt 5pt 0 0;
     border: 1px solid deepskyblue;
+}
+
+ul.drm-modifiers {
+    display: block;
+    list-style-type: none;
+    margin-bottom: 30px;
+}
+
+li.drm-modifier {
+    margin-left: 10px;
+    margin-top: 15px;
+}
+
+input.drm-checkbox {
+    vertical-align: middle;
+    display: inline-table;
+    margin-right: 25px;
+}
+
+input.drm-drop {
+    vertical-align: middle;
+    display: inline-table;
+    margin-right: 8px;
+    font-size: 10pt;
+}
+
+input.dice-roll-button {
+    font-size: 12pt;
+    font-weight: bold;
+    text-align: left;
+    margin-left: 30px;
+    margin-top: 12px;
+    margin-bottom: 20px;
+    display: inline-table;
+}
+
+span.caveat {
+    margin-left: 45px;
+    font-size: 85%;
 }
