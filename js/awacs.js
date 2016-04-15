@@ -6,7 +6,8 @@ var AwacsApp = function ($) {
   var selectedMode;
   var modes = [
     "StdADFMode",
-    "AdvDetADFMode",
+    "AdvDetMode",
+    "AdvADFMode",
     "AdvAirCombatMode",
     "AdvStrikeMode",
     "AdvInterdictMode"
@@ -179,6 +180,17 @@ var AwacsApp = function ($) {
         return currentAirSup;
       }
     };
+  })();
+
+  var stdAdfMode = (function () {
+    return {
+      'init': function () {
+        stdAdfDRMs.attachSection();
+        stdAdfDRMs.resetDRMs();
+        stdAdfResolver.attachSection();
+        $('.std-adf-modals').removeClass('hidden');
+      }
+    }
   })();
 
   var stdAdfDRMs = (function () {
@@ -439,6 +451,314 @@ var AwacsApp = function ($) {
     };
   })();
 
+  var advDetMode = (function () {
+    var missionTypeSelected = false;
+    var useLocalAdf = false;
+    var detectionDone = false;
+    var missionWasDetected = false;
+    var adfTrackToUse;
+    var trackLabels = {
+      'NormalADF': 'Standard ADF Track',
+      'NormalADFNoShoot': 'Standard ADF Track, no SAM or AAA (GSR 25.1 #3b)',
+      'NormalOrNavalADF': 'Choose Naval or Standard ADF',
+      'OptNormalOrNavalADF': 'Naval Umbrella, mix and match Standard and Naval ADF tracks',
+      'NavalADF': 'Naval ADF Track',
+      'NavalADFED': 'Naval ADF Track (always Early Detection)',
+      'LocalADF': 'Local ADF in use',
+      'AlwaysSuccess': 'Mission Always Succeeds'
+    };
+
+    var adfTrackListener = function (track) {
+      adfTrackToUse = track;
+
+      useLocalAdf = track === 'LocalADF';
+
+      detectionDone = false;
+      missionTypeSelected = true;
+      drawRequiredSections();
+    };
+
+    var drawRequiredSections = function () {
+      if (!missionTypeSelected) {
+        missionTypeSelector.attachSection();
+        missionTypeSelector.attachListener(adfTrackListener);
+      }
+      if (missionTypeSelected) {
+        $("#adf-track-selected").remove();
+        $("#adf-tracks").remove();
+        $(".selected-mode").append("<p class=\"heading\" id=\"adf-track-selected\">" + trackLabels[adfTrackToUse] +
+          "</p>\n");
+        if (adfTrackToUse === 'AlwaysSuccess') {
+          return;  // Skip all further, we're done.
+        }
+        if (!useLocalAdf) {
+          adfTracks.attachSection();
+        }
+        detectionResolver.attachSection(adfTrackToUse);
+      }
+      if (detectionDone) {
+
+      }
+    };
+
+    return {
+      'init': function () {
+        detectionDone = false;
+        useLocalAdf = false;
+        missionTypeSelected = false;
+        missionWasDetected = false;
+        drawRequiredSections();
+      },
+      'detectionComplete': function (isMissionDectected) {
+        missionWasDetected = isMissionDectected;
+        detectionDone = true;
+        drawRequiredSections();
+      }
+    };
+  })();
+
+  var missionTypeSelector = (function () {
+    var missionTypes = [
+      {
+        'name': 'ground-strike',
+        'label': 'Air Strike / Combat Support',
+        'secondary': [
+          {
+            'name': 'enemy-space',
+            'label': 'Enemy Country or w/i 2 hexes of enemy HQ',
+            'track': function () { return 'NormalADF'; }
+          },{
+            'name': 'naval-umbrella',
+            'label': 'w/i Naval Umbrella (NW Supplement #1)',
+            'track': function () { return 'OptNormalOrNavalADF'; }
+          },{
+            'name': 'other-adf',
+            'label': 'Other',
+            'track': function () { return 'LocalADF'; }
+          }
+        ]
+      },{
+        'name': 'helo',
+        'label': 'Helicopter / Airmobile',
+        'secondary': [
+          {
+            'name': 'local-adf',
+            'label': 'Always Local ADF',
+            'track': function () { return 'LocalADF'; }
+          }
+        ]
+      },{
+        'name': 'air-transport',
+        'label': 'Air Transport / Paradrop',
+        'secondary': [
+          {
+            'name': 'enemy-space',
+            'label': 'Enemy Country',
+            'track': function () { return 'NormalADF'; }
+          },{
+            'name': 'friendly-near-hq',
+            'label': 'Friendly Country w/i 2 hexes of enemy HQ',
+            'track': function () {
+              var airSup = airSupTracks.getCurrentAirSupLevel();
+              var enemySup = false;
+              if (airSup.substr(0, 3) === 'opp') {
+                enemySup = true;
+              }
+              if (enemySup) {
+                return "NormalADF";
+              } else {
+                return "LocalADF";
+              }
+            }
+          },{
+            'name': 'friendly-no-hq',
+            'label': 'Friendly Country not w/i 2 hexes of enemy HQ',
+            'track': function () {
+              var airSup = airSupTracks.getCurrentAirSupLevel();
+              var enemySup = false;
+              if (airSup.substr(0, 3) === 'opp') {
+                enemySup = true;
+              }
+              if (enemySup) {
+                return "NormalADFNoShoot";
+              } else {
+                return "AlwaysSuccess";
+              }
+            }
+          }
+        ]
+      },{
+        'name': 'naval-strike',
+        'label': 'Naval Strike',
+        'secondary': [
+          {
+            'name': 'detected-all-sea',
+            'label': 'Detected Naval in All-Sea hex',
+            'track': function () { return 'NormalOrNavalADF'; }
+          },{
+            'name': 'detected-at-sea',
+            'label': 'Detected Naval in In-Shore, At-Sea or Sea box',
+            'track': function () { return 'NavalADFED'; }
+          }
+        ]
+      },{
+        'name': 'mining',
+        'label': 'Aerial Mining',
+        'secondary': [
+          {
+            'name': 'coastal-mining',
+            'label': 'Along enemy coast, adj. Naval unit or w/i 2 hexes HQ',
+            'track': function () { return 'NormalADF'; }
+          },{
+            'name': 'mining-umbrella',
+            'label': 'w/i Naval Umbrella (NW Supplement #1)',
+            'track': function () { return 'OptNormalOrNavalADF'; }
+          },{
+            'name': 'other-mining',
+            'label': 'Other',
+            'track': function () { return 'LocalADF'; }
+          }
+        ]
+      }
+    ];
+    var currentMission;
+    var currentTarget;
+    var listeners = [];
+
+    var buildTypesHtml = function () {
+      var html = "<p class=\"heading\">Define Mission Type</p>\n<ul class=\"mission-types\" id=\"mission-types\">\n";
+
+      var numMissions = missionTypes.length;
+      for (var i = 0; i < numMissions; i++) {
+        html += "<li id=\"" + missionTypes[i]['name'] + "\" class=\"mission-type\">" + missionTypes[i]['label'] +
+          "</li>\n";
+      }
+
+      html += "</ul>\n";
+      return html;
+    };
+
+    var missionTypeIndex = function (type) {
+      var len = missionTypes.length;
+      for (var i = 0; i < len; i++) {
+        if (missionTypes[i]['name'] === type) {
+          return i;
+        }
+      }
+    };
+
+    var showSelectedTargetType = function (type) {
+      $(".target-type").each(function (index, element) {
+        var elementId = $(element).prop('id');
+        if (elementId === type) {
+          $(element).addClass('selected');
+        } else {
+          if ($(element).hasClass('selected')) {
+            $(element).removeClass('selected');
+          }
+        }
+      });
+    };
+
+    var signalTrackSelected = function (adfTrack) {
+      var numListeners = listeners.length;
+      for (var i = 0; i < numListeners; i++) {
+        listeners[i](adfTrack);
+      }
+    };
+
+    var clickHandlerTarget = function (type) {
+      currentTarget = type;
+      showSelectedTargetType(type);
+      var secondary = missionTypes[missionTypeIndex(currentMission)]['secondary'];
+      var numTypes = secondary.length;
+      for (var i = 0; i < numTypes; i++) {
+        if (type === secondary[i]['name']) {
+          var adfTrack = secondary[i]['track']();
+          signalTrackSelected(adfTrack);
+        }
+      }
+    };
+
+    var addClickHandlersTarget = function () {
+      var secondary = missionTypes[missionTypeIndex(currentMission)]['secondary'];
+      var numTypes = secondary.length;
+      for (var i = 0; i < numTypes; i++) {
+        $("#" + secondary[i]['name']).on('click', function () {
+          clickHandlerTarget($(this).prop('id'));
+        });
+      }
+    };
+
+    var updateSecondary = function () {
+      if (currentMission === undefined) {
+        return;  // Currently no-op.
+      }
+      adfTracks.removeTracks();
+      var secondary = missionTypes[missionTypeIndex(currentMission)]['secondary'];
+      var html = '';
+
+      currentTarget = undefined;
+
+      if (!$("#target-type-heading").length) {
+        html += "<p class=\"heading\" id=\"target-type-heading\">Select Target Type</p>";
+      }
+
+      $("#target-types").remove();
+      html += "<ul class=\"target-types\" id=\"target-types\">\n";
+      var secLen = secondary.length;
+      for (var i = 0; i < secLen; i++) {
+        html += "<li class=\"target-type\" id=\"" + secondary[i]['name'] + "\">" + secondary[i]['label'] + "</li>\n";
+      }
+      html += "</ul>\n";
+      $(".selected-mode").append(html);
+      addClickHandlersTarget();
+    };
+
+    var showSelectedMissionType = function (type) {
+      $(".mission-type").each(function (index, element) {
+        var elementId = $(element).prop('id');
+        if (elementId === type) {
+          $(element).addClass('selected');
+        } else {
+          if ($(element).hasClass('selected')) {
+            $(element).removeClass('selected');
+          }
+        }
+      });
+    };
+
+    var clickHandlerMission = function (type) {
+      currentMission = type;
+      showSelectedMissionType(type);
+      updateSecondary();
+    };
+
+    var addClickHandlersMission = function () {
+      var numTypes = missionTypes.length;
+      for (var i = 0; i < numTypes; i++) {
+        $("#" + missionTypes[i]['name']).on('click', function () {
+          clickHandlerMission($(this).prop('id'));
+        });
+      }
+    };
+
+    return {
+      'attachSection': function () {
+        if (!$('.adv-adf-mission-type').length) {
+          var html = "<div class=\"adv-adf-mission-type\" id=\"adv-adf-mission-type\">\n" +
+            buildTypesHtml() + "</div>\n";
+          $(".selected-mode").append(html);
+          addClickHandlersMission();
+        }
+        updateSecondary();
+      },
+      'attachListener': function (listener) {
+        listeners.push(listener);
+      }
+    }
+  })();
+  
   var adfTracks = (function () {
     var adfDetection = 6;
     var adfSAM = 6;
@@ -524,7 +844,7 @@ var AwacsApp = function ($) {
     return {
       'attachSection': function () {
         if (!$("#adf-tracks").length) {
-          var html = "<div class=\"adf-tracks modals hidden\" id=\"adf-tracks\">\n" +
+          var html = "<div class=\"adf-tracks modals\" id=\"adf-tracks\">\n" +
             buildTrackHtml('det', 10) + buildTrackHtml('sam', 10) + buildTrackHtml('aaa', 3) +
             "</div>\n";
           $(".selected-mode").append(html);
@@ -535,11 +855,90 @@ var AwacsApp = function ($) {
         }
         refreshAdfTracks();
       },
+      'removeTracks': function () {
+        $("#adf-tracks").remove();
+        $("#adf-track-selected").remove();
+      },
       'attachListener': function (listener) {
         listeners.push(listener);
+      },
+      'getCurrentDetection': function () {
+        return adfDetection;
       }
     };
   })();
+
+  var detectionDrms = (function () {
+    var drms = [
+      {
+        'name': 'dist-install',
+        'type': 'check',
+        'value': -2,
+        'desc': 'Target within 2 hexes from Airfield, Installation or Naval Unit. (-2)',
+        'caveat': undefined,
+        'current': 0
+      }
+    ];
+    return {
+
+    };
+  })();
+
+  var detectionResolver = (function () {
+    var detectionModifiers = {
+      'NavalADFED': function (result) {
+        if (result === 'D') {
+          return 'ED';
+        }
+        return result;
+      }
+    };
+    var useLocalDetection = false;
+    var detectionModifierInUse;
+    var detectionTable = {
+      'local': ['D','D','D'],
+      0: ['ED', 'D', 'D'],
+      1: ['ED', 'D', 'D'],
+      2: ['ED', 'D', 'D', 'D'],
+      3: ['ED', 'D', 'D', 'D'],
+      4: ['ED', 'ED', 'D', 'D', 'D'],
+      5: ['ED', 'ED', 'D', 'D', 'D', 'D'],
+      6: ['ED', 'ED', 'ED', 'D', 'D', 'D', 'D'],
+      7: ['ED', 'ED', 'ED', 'D', 'D', 'D', 'D', 'D'],
+      8: ['ED', 'ED', 'ED', 'ED', 'D', 'D', 'D', 'D'],
+      9: ['ED', 'ED', 'ED', 'ED', 'D', 'D', 'D', 'D', 'D'],
+      10: ['ED', 'ED', 'ED', 'ED', 'ED', 'D', 'D', 'D', 'D']
+    };
+
+    var resolveDetection = function (detectionDrms) {
+      var dieRoll = rollDie(detectionDrms);
+      var detection;
+      if (useLocalDetection) {
+        detection = 'local';
+      } else {
+        detection = adfTracks.getCurrentDetection();
+      }
+      var rawResult = detectionTable[detection][dieRoll['net-roll']];
+      return detectionModifierInUse(rawResult);
+    };
+
+    var initTrackEffect = function (adfTrack) {
+      if (adfTrack === 'LocalADF') {
+        useLocalDetection = true;
+      }
+      detectionModifierInUse = detectionModifiers[adfTrack];
+      if (detectionModifierInUse === undefined) {
+        detectionModifierInUse = function (result) { return result; };
+      }
+    };
+
+    return {
+      'attachSection': function (adfTrack) {
+        initTrackEffect(adfTrack);
+      }
+    };
+  })();
+
 
   var rollDie = function (modifier) {
     if (modifier === undefined) {
@@ -554,23 +953,14 @@ var AwacsApp = function ($) {
   };
 
   var resetAllModals = function () {
-    $(".modals").each(function (index, element) {
-      if (!$(element).hasClass('hidden')) {
-        $(element).addClass('hidden');
-      }
-    });
+    $(".selected-mode").html('');  // Torch everything.
   };
 
-  var initStdAdfMode = function () {
-    stdAdfDRMs.attachSection();
-    stdAdfDRMs.resetDRMs();
-    stdAdfResolver.attachSection();
-    $('.std-adf-modals').removeClass('hidden');
-  };
-  
   var initSelectedMode = function () {
     if (selectedMode === 'StdADFMode') {
-      initStdAdfMode();
+      stdAdfMode.init();
+    } else if (selectedMode === 'AdvDetMode') {
+      advDetMode.init();
     }
   };
 
@@ -601,7 +991,6 @@ var AwacsApp = function ($) {
 
     playerSelector.attachSection();
     airSupTracks.attachSection();
-    adfTracks.attachSection();
 
     if (selectedMode == null) {
       changeMode("StdADFMode");
