@@ -1,0 +1,91 @@
+<html>
+<head>
+    <title>AWACS - Air Combat Automation for Next War series games.</title>
+    <link rel="stylesheet" type="text/css" href="css/main.css">
+    <script type="text/javascript" src="js/awacs.js"></script>
+    <script type="text/javascript" src="js/jquery-2.2.3.js"></script>
+</head>
+<body>
+<div class="player-banner" id="player-banner">
+    <div class="player" id="player-flag">
+        <div class="flag-box" id="flag-box">
+            &nbsp;
+        </div>
+    </div>
+    <div class="air-sup-track" id="air-sup-track">
+        <ul class="air-sup-boxes">
+            <li class="air-sup-box" id="oppSupremacy">Opponent Supremacy</li>
+            <li class="air-sup-box" id="oppSuperiority">Opponent Superiority</li>
+            <li class="air-sup-box" id="oppAdvantage">Opponent Advantage</li>
+            <li class="air-sup-box" id="contested">Contested</li>
+            <li class="air-sup-box" id="advantage">Advantage</li>
+            <li class="air-sup-box" id="superiority">Superiority</li>
+            <li class="air-sup-box" id="supremacy">Supremacy</li>
+        </ul>
+    </div>
+</div>
+<div class="tabbed" id="modes">
+    <ul class="tabbed">
+        <li class="mode tabbed" id="StdADFMode">Standard ADF</li>
+        <li class="mode tabbed" id="AdvDetADFMode">Adv. Detection/ADF</li>
+        <li class="mode tabbed" id="AdvAirCombatMode">Adv. Air Combat</li>
+        <li class="mode tabbed" id="AdvStrikeMode">Adv. Strike</li>
+        <li class="mode tabbed" id="AdvInterdictMode">Adv. Interdiction</li>
+    </ul>
+</div>
+<div class="selected-mode">
+    <div class="adf-tracks" id="adf-tracks">
+        <div class="track" id="detection-track">
+            <p class="label" id="det-label">Detection</p>
+            <ul class="boxes" id="det-boxes">
+                <li class="box" id="det-box-1">1</li>
+                <li class="box" id="det-box-2">2</li>
+                <li class="box" id="det-box-3">3</li>
+                <li class="box" id="det-box-4">4</li>
+                <li class="box" id="det-box-5">5</li>
+                <li class="box" id="det-box-6">6</li>
+                <li class="box" id="det-box-7">7</li>
+                <li class="box" id="det-box-8">8</li>
+                <li class="box" id="det-box-9">9</li>
+                <li class="box" id="det-box-10">10</li>
+            </ul>
+        </div>
+        <div class="track" id="sam-track">
+            <p class="label" id="sam-label">SAM</p>
+            <ul class="boxes" id="sam-boxes">
+                <li class="box" id="sam-box-1">1</li>
+                <li class="box" id="sam-box-2">2</li>
+                <li class="box" id="sam-box-3">3</li>
+                <li class="box" id="sam-box-4">4</li>
+                <li class="box" id="sam-box-5">5</li>
+                <li class="box" id="sam-box-6">6</li>
+                <li class="box" id="sam-box-7">7</li>
+                <li class="box" id="sam-box-8">8</li>
+                <li class="box" id="sam-box-9">9</li>
+                <li class="box" id="sam-box-10">10</li>
+            </ul>
+        </div>
+        <div class="track" id="aaa-track">
+            <p class="label" id="aaa-label">AAA</p>
+            <ul class="boxes" id="aaa-boxes">
+                <li class="box" id="aaa-box-1">1</li>
+                <li class="box" id="aaa-box-2">2</li>
+                <li class="box" id="aaa-box-3">3</li>
+            </ul>
+        </div>
+    </div>
+    <div class="tabbed modals hidden" id="mission-type">
+        <ul class="tabbed">
+            <li class="tabbed" id="StrikeOrCSType">Strike / Combat Support</li>
+            <li class="tabbed" id="HeloType">Helicopter (all)</li>
+            <li class="tabbed" id="AirTransType">Air Transport/Paradrop</li>
+            <li class="tabbed" id="NavalType">Naval Strike</li>
+            <li class="tabbed" id="MiningType">Mining</li>
+        </ul>
+    </div>
+</div>
+<script>
+    $( document ).ready(AwacsApp(jQuery));
+</script>
+</body>
+</html>
