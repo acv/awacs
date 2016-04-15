@@ -11,20 +11,175 @@ var AwacsApp = function ($) {
     "AdvStrikeMode",
     "AdvInterdictMode"
   ];
-  var adfDetection = 6;
-  var adfSAM = 6;
-  var adfAAA = 2;
-  var currentAirSup = "contested";
-  var validAirSup = {
-    'oppSupremacy': '#FF2000',
-    'oppSuperiority': '#FF3800',
-    'oppAdvantage': '#FF5000',
-    'contested': 'white',
-    'advantage': 'rgb(120, 170, 255)',
-    'superiority': 'rgb(120, 150, 255)',
-    'supremacy': 'rgb(120, 120, 255)'
-  };
-  var currentPlayer = "Allied";
+
+  var playerSelector = (function () {
+    var currentPlayer = "Allied";
+    var listeners = [];
+    var that = this;
+
+    var getPlayerColor = function () {
+      if (currentPlayer === "Allied") {
+        return "royalblue"
+      } else {
+        return "red"
+      }
+    };
+
+    var getOtherPlayerColor = function () {
+      if (currentPlayer !== "Allied") {
+        return "royalblue"
+      } else {
+        return "red"
+      }
+    };
+
+    var signalListeners = function () {
+      var numListener = listeners.length;
+      for (var i = 0; i < numListener; i++) {
+        listeners[i](that);
+      }
+    };
+
+    var flipPlayer = function () {
+      if (currentPlayer === 'Allied') {
+        currentPlayer = 'OpFor';
+      } else {
+        currentPlayer = 'Allied';
+      }
+      $("#flag-box").css("background-color", getPlayerColor());
+      signalListeners();
+    };
+
+    var initFlag = function () {
+      $("#flag-box")
+        .css('background-color', getPlayerColor())
+        .on('click', function () {
+          flipPlayer();
+        });
+    };
+
+    return {
+      'attachSection': function () {
+        if (!$("#player-flag").length) {
+          var html = "<div class=\"player\" id=\"player-flag\">\n<div class=\"flag-box\" id=\"flag-box\">\n" +
+            "</div>\n</div>";
+          $("#player-banner").prepend(html);
+          initFlag();
+        }
+      },
+      'attachListener': function (listener) {
+        listeners.push(listener);
+      },
+      'getPlayerColor': function () {
+        return getPlayerColor();
+      },
+      'getOtherPlayerColor': function () {
+        return getOtherPlayerColor();
+      }
+    };
+  })();
+
+  var airSupTracks = (function () {
+    var currentAirSup = "contested";
+    var validAirSup = {
+      'oppSupremacy': {'color': '#FF2000', 'label': 'Opponent Supremacy'},
+      'oppSuperiority': {'color': '#FF3800', 'label': 'Opponent Superiority'},
+      'oppAdvantage': {'color': '#FF5000', 'label': 'Opponent Advantage'},
+      'contested': {'color': 'white', 'label': 'Contested'},
+      'advantage': {'color': 'rgb(120, 170, 255)', 'label': 'Advantage'},
+      'superiority': {'color': 'rgb(120, 150, 255)', 'label': 'Superiority'},
+      'supremacy': {'color': 'rgb(120, 120, 255)', 'label': 'Supremacy'}
+    };
+    var listeners = [];
+
+    var buildTrackHtml = function () {
+      var types = [
+        'oppSupremacy',
+        'oppSuperiority',
+        'oppAdvantage',
+        'contested',
+        'advantage',
+        'superiority',
+        'supremacy'
+      ];
+      var numTypes = types.length;
+      var html = "<div class=\"air-sup-track\" id=\"air-sup-track\">\n" +
+        "<ul class=\"air-sup-boxes\" id=\"air-sup-boxes\">\n";
+      for (var i = 0; i < numTypes; i++) {
+        html += "<li class=\"air-sup-box\" id=\"" + types[i] + "\">" + validAirSup[types[i]]['label'] + "</li>\n";
+      }
+      html += "</ul>\n</div>\n";
+      return html;
+    };
+
+    var airSupBoxColor = function (level) {
+      var color = validAirSup[level]['color'];
+      if (color === undefined) {
+        color = 'white'
+      }
+      return color;
+    };
+
+    var refreshAirSupTrack = function () {
+      $("#air-sup-boxes").find(".air-sup-box").each(function (index, element) {
+        var id = $(element).attr('id');
+        if (id === currentAirSup) {
+          $(element)
+            .css('background-color', 'black')
+            .css('color', 'white');
+        } else {
+          $(element)
+            .css('background-color', airSupBoxColor(id))
+            .css('color', 'black');
+        }
+      });
+    };
+
+    var airSupClickHandler = function (value) {
+      currentAirSup = value;
+      refreshAirSupTrack();
+    };
+
+    var initAirSupTrack = function () {
+      $("#air-sup-boxes").find(".air-sup-box").each(function (index, element) {
+        var id = $(element).attr('id');
+        $(element).on('click', function () {
+          airSupClickHandler(id);
+        });
+      });
+    };
+
+    var flipAirSupTrack = function () {
+      var airSup = currentAirSup;
+      if (airSup === 'contested') {
+        return;  // Skip.
+      }
+      if (airSup.substr(0, 3) === 'opp') {
+        airSup = airSup.substr(3).toLowerCase();
+      } else {
+        airSup = 'opp' + airSup.charAt(0).toUpperCase() + airSup.slice(1);
+      }
+      currentAirSup = airSup;
+      refreshAirSupTrack();
+    };
+
+    return {
+      'attachSection': function () {
+        if (!$("#air-sup-track").length) {
+          $("#player-banner").append(buildTrackHtml());
+          initAirSupTrack();
+          playerSelector.attachListener(flipAirSupTrack);
+        }
+        refreshAirSupTrack();
+      },
+      'attachListener': function (listener) {
+        listeners.push(listener);
+      },
+      'getCurrentAirSupLevel': function () {
+        return currentAirSup;
+      }
+    };
+  })();
 
   var stdAdfDRMs = (function () {
     var drms = [
@@ -95,7 +250,7 @@ var AwacsApp = function ($) {
       return html;
     };
 
-    var signalListenerOfDrmChange = function () {
+    var signalListenersOfDrmChange = function () {
       var numListener = listeners.length;
       for (var i = 0; i < numListener; i++) {
         listeners[i](that);
@@ -128,7 +283,7 @@ var AwacsApp = function ($) {
           drm['current'] = drm['max-count'];
         }
       }
-      signalListenerOfDrmChange();
+      signalListenersOfDrmChange();
     };
 
     var addChangeHandlers = function () {
@@ -243,7 +398,7 @@ var AwacsApp = function ($) {
     };
 
     var resolveAdfEffect = function (netDieRoll) {
-      var column = stdAdfResultTable[currentAirSup];
+      var column = stdAdfResultTable[airSupTracks.getCurrentAirSupLevel()];
       return column(netDieRoll);
     };
 
@@ -284,44 +439,107 @@ var AwacsApp = function ($) {
     };
   })();
 
-  var getPlayerColor = function () {
-    if (currentPlayer === "Allied") {
-      return "royalblue"
-    } else {
-      return "red"
-    }
-  };
+  var adfTracks = (function () {
+    var adfDetection = 6;
+    var adfSAM = 6;
+    var adfAAA = 2;
 
-  var getOtherPlayerColor = function () {
-    if (currentPlayer !== "Allied") {
-      return "royalblue"
-    } else {
-      return "red"
-    }
-  };
+    var listeners = [];
 
-  var airSupBoxColor = function (level) {
-    var color = validAirSup[level];
-    if (color === undefined) {
-      color = 'white'
-    }
-    return color;
-  };
+    var trackLabels = {
+      'det': 'Detection',
+      'sam': 'SAM',
+      'aaa': 'AAA'
+    };
 
-  var refreshAirSupTrack = function () {
-    $("#air-sup-boxes").find(".air-sup-box").each(function (index, element) {
-      var id = $(element).attr('id');
-      if (id === currentAirSup) {
-        $(element)
-          .css('background-color', 'black')
-          .css('color', 'white');
-      } else {
-        $(element)
-          .css('background-color', airSupBoxColor(id))
-          .css('color', 'black');
+    var buildTrackHtml = function (type, numBoxes) {
+      var html = "<div class=\"track\" id=\"" + type + "-track\">\n" +
+        "<p class=\"label\" id=\"" + type + "-label\">" + trackLabels[type] + "</p>\n" +
+        "<ul class=\"boxes\" id=\"" + type + "-boxes\">\n";
+      for (var i = 0; i < numBoxes; i++) {
+        var boxNum = i + 1;
+        html += "<li class=\"box\" id=\"" + type + "-box-" + boxNum + "\">" + boxNum + "</li>\n";
       }
-    });
-  };
+      html += "</ul>\n</div>\n";
+      return html;
+    };
+
+    var refreshAdfTracks = function () {
+      $("#adf-tracks").find(".box").each(function (index, element) {
+        var id = $(element).attr("id").split('-');
+        var value = parseInt(id[2]);
+        if (id[0] === "det") {
+          if (value === adfDetection) {
+            $(element).css('background-color', playerSelector.getOtherPlayerColor());
+          } else {
+            $(element).css('background-color', "white");
+          }
+        } else if (id[0] === "sam") {
+          if (value === adfSAM) {
+            $(element).css('background-color', playerSelector.getOtherPlayerColor());
+          } else {
+            $(element).css('background-color', "white");
+          }
+
+        } else if (id[0] === 'aaa') {
+          if (value === adfAAA) {
+            $(element).css('background-color', playerSelector.getOtherPlayerColor());
+          } else {
+            $(element).css('background-color', "white");
+          }
+
+        }
+      });
+    };
+
+    var adfClickHandler = function (track, value) {
+      if (track === 'adfDetection') {
+        adfDetection = parseInt(value);
+      } else if (track === 'adfSAM') {
+        adfSAM = parseInt(value);
+      } else if (track === 'adfAAA') {
+        adfAAA = parseInt(value);
+      }
+      refreshAdfTracks();
+    };
+
+    var addHandlersToTrackBoxes = function () {
+      $("#adf-tracks").find(".box").each(function (index, element) {
+        var id = $(element).attr("id").split('-');
+        var value = parseInt(id[2]);
+        var track;
+        if (id[0] === 'det') {
+          track = 'adfDetection';
+        } else if (id[0] === 'sam') {
+          track = 'adfSAM';
+        } else if (id[0] === 'aaa') {
+          track = 'adfAAA';
+        }
+        $(element).on('click', function () {
+          adfClickHandler(track, value);
+        });
+      });
+    };
+
+    return {
+      'attachSection': function () {
+        if (!$("#adf-tracks").length) {
+          var html = "<div class=\"adf-tracks modals hidden\" id=\"adf-tracks\">\n" +
+            buildTrackHtml('det', 10) + buildTrackHtml('sam', 10) + buildTrackHtml('aaa', 3) +
+            "</div>\n";
+          $(".selected-mode").append(html);
+          addHandlersToTrackBoxes();
+          airSupTracks.attachListener(function () {
+            refreshAdfTracks();
+          });
+        }
+        refreshAdfTracks();
+      },
+      'attachListener': function (listener) {
+        listeners.push(listener);
+      }
+    };
+  })();
 
   var rollDie = function (modifier) {
     if (modifier === undefined) {
@@ -333,112 +551,6 @@ var AwacsApp = function ($) {
       'raw-roll': roll,
       'net-roll': roll + modifier
     };
-  };
-
-  var airSupClickHandler = function (value) {
-    currentAirSup = value;
-    refreshAirSupTrack();
-  };
-
-  var initAirSupTrack = function () {
-    $("#air-sup-boxes").find(".air-sup-box").each(function (index, element) {
-      var id = $(element).attr('id');
-      $(element).on('click', function () {
-        airSupClickHandler(id);
-      });
-    });
-    refreshAirSupTrack();
-  };
-
-  var flipAirSupTrack = function () {
-    var airSup = currentAirSup;
-    if (airSup === 'contested') {
-      return;  // Skip.
-    }
-    if (airSup.substr(0, 3) === 'opp') {
-      airSup = airSup.substr(3).toLowerCase();
-    } else {
-      airSup = 'opp' + airSup.charAt(0).toUpperCase() + airSup.slice(1);
-    }
-    currentAirSup = airSup;
-    refreshAirSupTrack();
-  };
-
-  var flipPlayer = function () {
-    if (currentPlayer === 'Allied') {
-      currentPlayer = 'OpFor';
-    } else {
-      currentPlayer = 'Allied';
-    }
-    $("#flag-box").css("background-color", getPlayerColor());
-    flipAirSupTrack();
-    refreshAdfTracks();
-  };
-
-  var initFlag = function () {
-    $("#flag-box")
-      .css('background-color', getPlayerColor())
-      .on('click', function () {
-        flipPlayer();
-      });
-  };
-
-  var refreshAdfTracks = function () {
-    $("#adf-tracks").find(".box").each(function (index, element) {
-      var id = $(element).attr("id").split('-');
-      var value = parseInt(id[2]);
-      if (id[0] === "det") {
-        if (value === adfDetection) {
-          $(element).css('background-color', getOtherPlayerColor());
-        } else {
-          $(element).css('background-color', "white");
-        }
-      } else if (id[0] === "sam") {
-        if (value === adfSAM) {
-          $(element).css('background-color', getOtherPlayerColor());
-        } else {
-          $(element).css('background-color', "white");
-        }
-
-      } else if (id[0] === 'aaa') {
-        if (value === adfAAA) {
-          $(element).css('background-color', getOtherPlayerColor());
-        } else {
-          $(element).css('background-color', "white");
-        }
-
-      }
-    });
-  };
-
-  var adfClickHandler = function (track, value) {
-    if (track === 'adfDetection') {
-      adfDetection = parseInt(value);
-    } else if (track === 'adfSAM') {
-      adfSAM = parseInt(value);
-    } else if (track === 'adfAAA') {
-      adfAAA = parseInt(value);
-    }
-    refreshAdfTracks();
-  };
-
-  var initAdfTracks = function () {
-    $("#adf-tracks").find(".box").each(function (index, element) {
-      var id = $(element).attr("id").split('-');
-      var value = parseInt(id[2]);
-      var track;
-      if (id[0] === 'det') {
-        track = 'adfDetection';
-      } else if (id[0] === 'sam') {
-        track = 'adfSAM';
-      } else if (id[0] === 'aaa') {
-        track = 'adfAAA';
-      }
-      $(element).on('click', function () {
-        adfClickHandler(track, value);
-      });
-    });
-    refreshAdfTracks();
   };
 
   var resetAllModals = function () {
@@ -487,9 +599,9 @@ var AwacsApp = function ($) {
       }
     });
 
-    initFlag();
-    initAirSupTrack();
-    initAdfTracks();
+    playerSelector.attachSection();
+    airSupTracks.attachSection();
+    adfTracks.attachSection();
 
     if (selectedMode == null) {
       changeMode("StdADFMode");
