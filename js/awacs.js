@@ -460,7 +460,8 @@ var AwacsApp = function ($) {
       'NormalADF': 'Standard ADF Track',
       'NormalADFNoShoot': 'Standard ADF Track, no SAM or AAA (SR 25.1 #3b)',
       'NormalOrNavalADF': 'Choose Naval or Standard ADF',
-      'OptNormalOrNavalADF': 'Naval Umbrella, mix and match Standard and Naval ADF tracks',
+      'OptNormalOrNavalADF': 'Naval Umbrella, mix and match Standard and Naval ADF tracks, ' +
+        'Naval aircrafts can intercept on D results.',
       'NavalADF': 'Naval ADF Track',
       'NavalADFED': 'Naval ADF Track (always Early Detection)',
       'LocalADF': 'Local ADF in use',
@@ -740,6 +741,7 @@ var AwacsApp = function ($) {
     return {
       'attachSection': function () {
         if (!$('.adv-adf-mission-type').length) {
+          currentMission = undefined;
           var html = "<div class=\"adv-adf-mission-type\" id=\"adv-adf-mission-type\">\n" +
             buildTypesHtml() + "</div>\n";
           $(".selected-mode").append(html);
@@ -844,6 +846,9 @@ var AwacsApp = function ($) {
           $(".selected-mode").append(html);
           addHandlersToTrackBoxes();
           airSupTracks.attachListener(function () {
+            refreshAdfTracks();
+          });
+          playerSelector.attachListener(function () {
             refreshAdfTracks();
           });
         }
@@ -1151,7 +1156,6 @@ var AwacsApp = function ($) {
       }
     };
   })();
-
 
   var rollDie = function (modifier) {
     if (modifier === undefined) {
