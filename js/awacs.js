@@ -1085,7 +1085,11 @@ var AwacsApp = function ($) {
       } else {
         detection = adfTracks.getCurrentDetection();
       }
-      var rawResult = detectionTable[detection][dieRoll['net-roll']];
+      var roll = dieRoll['net-roll'];
+      if (roll < 0) {
+        roll = 0;
+      }
+      var rawResult = detectionTable[detection][roll];
       var netResult = detectionModifierInUse(rawResult);
       if (netResult === undefined) {
         netResult = "\u2014";
