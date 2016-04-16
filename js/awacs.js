@@ -879,7 +879,7 @@ var AwacsApp = function ($) {
         'name': 'helo-through-hex',
         'type': 'check',
         'value': -1,
-        'desc': 'Attack Helicopter/Airmobile Movement pased through Detecting Players\'s occupied hex',
+        'desc': 'Attack Helicopter/Airmobile Movement pased through Detecting Players\'s occupied hex (-1)',
         'current': 0
       },{
         'name': 'per-wild-weasel',
