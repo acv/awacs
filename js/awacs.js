@@ -1097,6 +1097,7 @@ var AwacsApp = function ($) {
     };
 
     var updateDrmDisplay = function () {
+      currentDrm = detectionDrms.sumNetDRM();
       var currentDrmString;
       if (currentDrm < 0) {
         currentDrmString = currentDrm.toString();
@@ -1128,7 +1129,6 @@ var AwacsApp = function ($) {
 
     var setupDrmListener = function () {
       detectionDrms.attachListener(function () {
-        currentDrm = detectionDrms.sumNetDRM();
         updateDrmDisplay();
       });
     };
