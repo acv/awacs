@@ -454,12 +454,11 @@ var AwacsApp = function ($) {
   var advDetMode = (function () {
     var missionTypeSelected = false;
     var useLocalAdf = false;
-    var detectionDone = false;
     var missionWasDetected = false;
     var adfTrackToUse;
     var trackLabels = {
       'NormalADF': 'Standard ADF Track',
-      'NormalADFNoShoot': 'Standard ADF Track, no SAM or AAA (GSR 25.1 #3b)',
+      'NormalADFNoShoot': 'Standard ADF Track, no SAM or AAA (SR 25.1 #3b)',
       'NormalOrNavalADF': 'Choose Naval or Standard ADF',
       'OptNormalOrNavalADF': 'Naval Umbrella, mix and match Standard and Naval ADF tracks',
       'NavalADF': 'Naval ADF Track',
@@ -470,11 +469,11 @@ var AwacsApp = function ($) {
 
     var adfTrackListener = function (track) {
       adfTrackToUse = track;
-
       useLocalAdf = track === 'LocalADF';
 
-      detectionDone = false;
       missionTypeSelected = true;
+      detectionDrms.removeDRMs();
+      detectionResolver.removeResolver();
       drawRequiredSections();
     };
 
@@ -494,24 +493,17 @@ var AwacsApp = function ($) {
         if (!useLocalAdf) {
           adfTracks.attachSection();
         }
+        detectionDrms.resetDRMs();
+        detectionDrms.attachSection();
         detectionResolver.attachSection(adfTrackToUse);
-      }
-      if (detectionDone) {
-
       }
     };
 
     return {
       'init': function () {
-        detectionDone = false;
         useLocalAdf = false;
         missionTypeSelected = false;
         missionWasDetected = false;
-        drawRequiredSections();
-      },
-      'detectionComplete': function (isMissionDectected) {
-        missionWasDetected = isMissionDectected;
-        detectionDone = true;
         drawRequiredSections();
       }
     };
@@ -695,6 +687,8 @@ var AwacsApp = function ($) {
         return;  // Currently no-op.
       }
       adfTracks.removeTracks();
+      detectionDrms.removeDRMs();
+      detectionResolver.removeResolver();
       var secondary = missionTypes[missionTypeIndex(currentMission)]['secondary'];
       var html = '';
 
@@ -871,16 +865,183 @@ var AwacsApp = function ($) {
   var detectionDrms = (function () {
     var drms = [
       {
-        'name': 'dist-install',
+        'name': 'target-near-hq',
+        'type': 'check',
+        'value': -1,
+        'desc': 'Target within 2 hexes from of Detecting player\'s HQ (-1).',
+        'current': 0
+      },{
+        'name': 'helo-through-hex',
+        'type': 'check',
+        'value': -1,
+        'desc': 'Attack Helicopter/Airmobile Movement pased through Detecting Players\'s occupied hex',
+        'current': 0
+      },{
+        'name': 'per-wild-weasel',
+        'type': 'drop',
+        'max-count': 4,  // Better safe than sorry, can't tell if limit is 2 or 4.
+        'value': 1,
+        'desc': 'Number Wild Weasel units included in mission (+1 each)',
+        'current': 0
+      },{
+        'name': 'versus-transport',
+        'type': 'check',
+        'value': 1,
+        'desc': 'Detection of Transport/paradrop/Combat Support missions (+1)',
+        'current': 0
+      },{
+        'name': 'weather-overcast',
+        'type': 'check',
+        'value': 1,
+        'desc': 'Weather is Overcast (+1)',
+        'current': 0
+      },{
+        'name': 'mountain-hex',
+        'type': 'check',
+        'value': 1,
+        'desc': 'Mission hex in Mountain/high Mountain hex (+1, NWIP only)',
+        'current': 0
+      },{
+        'name': 'all-sealth',
+        'type': 'check',
+        'value': 5,
+        'desc': 'Mission composed solely of "Stealth" units. (+5)',
+        'current': 0
+      },{
+        'name': 'def-awacs-4',
+        'type': 'check',
+        'value': -3,
+        'desc': 'Defender has AWACS Advantage of "4" (PRC restrictions in NWT) (-3)',
+        'current': 0
+      },{
+        'name': 'def-awacs-3',
         'type': 'check',
         'value': -2,
-        'desc': 'Target within 2 hexes from Airfield, Installation or Naval Unit. (-2)',
-        'caveat': undefined,
+        'desc': 'Defender has AWACS Advantage of "3" (PRC restrictions in NWT) (-2)',
+        'current': 0
+      },{
+        'name': 'def-awacs-2',
+        'type': 'check',
+        'value': -1,
+        'desc': 'Defender has AWACS Advantage of "2" (PRC restrictions in NWT) (-1)',
         'current': 0
       }
     ];
-    return {
+    var listeners = [];
+    var that = this;  // Self reference.
 
+    var getInputForDRM = function (drm) {
+      var html = '';
+      if (drm['type'] === 'check') {
+        html += "<input type=\"checkbox\" id=\"" + drm['name'] + "-check\" class=\"drm-checkbox adv-det-drm\">\n";
+      } else if (drm['type'] === 'drop') {
+        html += "<input type=\"number\" id=\"" + drm['name'] + "-drop\" class=\"drm-drop adv-det-drm\" min=\"0\" " +
+          "max=\"" + drm['max-count'] + "\" value=\"0\">\n";
+      }
+      return html;
+    };
+
+    var drmHtmlSnippets = function () {
+      var arrayLength = drms.length;
+      var html = '';
+      for (var i = 0; i < arrayLength; i++) {
+        html += "<li class=\"drm-modifier\" id=\"" + drms[i]['name'] + "\">\n";
+        html += getInputForDRM(drms[i]);
+        html += drms[i]['desc'];
+        if (drms[i]['caveat'] !== undefined) {
+          html += "<br>\n<span class=\"caveat\">" + drms[i]['caveat'] + "</span>";
+        }
+        html += "\n</li>\n";
+      }
+      return html;
+    };
+
+    var signalListenersOfDrmChange = function () {
+      var numListener = listeners.length;
+      for (var i = 0; i < numListener; i++) {
+        listeners[i](that);
+      }
+    };
+
+    var handleDrmChange = function (element) {
+      var elementId = $(element).prop('id');
+      var numDrm = drms.length;
+      var drm;
+      for (var i = 0; i < numDrm; i++) {
+        var drmId = drms[i]['name'] + '-' + drms[i]['type'];
+        if (drmId === elementId) {
+          drm = drms[i];
+          break;
+        }
+      }
+      if (drm === undefined) {
+        return;  // Not expected!
+      }
+      if (drm['type'] === 'check') {
+        if ($(element).prop('checked')) {
+          drm['current'] = 1;
+        } else {
+          drm['current'] = 0;
+        }
+      } else if (drm['type'] === 'drop') {
+        drm['current'] = parseInt($(element).prop('value'));
+        if (drm['current'] > drm['max-count']) {
+          drm['current'] = drm['max-count'];
+        }
+      }
+      signalListenersOfDrmChange();
+    };
+
+    var addChangeHandlers = function () {
+      var arrayLength = drms.length;
+      for (var i = 0; i < arrayLength; i++) {
+        var elementId = drms[i]['name'] + '-' + drms[i]['type'];
+        $("#" + elementId).on('change', function () {
+          handleDrmChange(this);
+        });
+      }
+    };
+
+    return {
+      'attachSection': function () {
+        if (!$('#adv-det-modifiers').length) {
+          var newHtml = "<div class=\"det-modifiers modals adv-det-modals\" id=\"adv-det-modifiers\">\n" +
+            "<p class=\"heading\">DRMs</p>\n<ul class=\"drm-modifiers\" id=\"adv-det-drm\">" +
+            drmHtmlSnippets() + "\n</ul>\n</div>";
+          $(".selected-mode").append(newHtml);
+          addChangeHandlers();
+        }
+      },
+      'attachListener': function (listener) {
+        listeners.push(listener);
+      },
+      'sumNetDRM': function () {
+        var arrayLength = drms.length;
+        var total = 0;
+        for (var i = 0; i < arrayLength; i++) {
+          if (drms[i]['current'] > 0) {
+            total += drms[i]['current'] * drms[i]['value'];
+          }
+        }
+        return total;
+      },
+      'resetDRMs': function () {
+        var arrayLength = drms.length;
+        for (var i = 0; i < arrayLength; i++) {
+          drms[i]['current'] = 0;
+
+        }
+        $(".adv-det-drm").each(function (index, element) {
+          if ($(element).hasClass('drm-checkbox')) {
+            $(element).prop('checked', false);
+          } else if ($(element).hasClass('drm-drop')) {
+            $(element).prop('value', 0);
+          }
+        });
+      },
+      'removeDRMs': function () {
+        $("#adv-det-modifiers").remove();
+      }
     };
   })();
 
@@ -888,7 +1049,7 @@ var AwacsApp = function ($) {
     var detectionModifiers = {
       'NavalADFED': function (result) {
         if (result === 'D') {
-          return 'ED';
+          return 'ED (orig. D, per SR 17.1.4 #3)';
         }
         return result;
       }
@@ -909,9 +1070,10 @@ var AwacsApp = function ($) {
       9: ['ED', 'ED', 'ED', 'ED', 'D', 'D', 'D', 'D', 'D'],
       10: ['ED', 'ED', 'ED', 'ED', 'ED', 'D', 'D', 'D', 'D']
     };
+    var currentDrm = 0;
 
-    var resolveDetection = function (detectionDrms) {
-      var dieRoll = rollDie(detectionDrms);
+    var resolveDetection = function () {
+      var dieRoll = rollDie(currentDrm);
       var detection;
       if (useLocalDetection) {
         detection = 'local';
@@ -919,7 +1081,24 @@ var AwacsApp = function ($) {
         detection = adfTracks.getCurrentDetection();
       }
       var rawResult = detectionTable[detection][dieRoll['net-roll']];
-      return detectionModifierInUse(rawResult);
+      var netResult = detectionModifierInUse(rawResult);
+      if (netResult === undefined) {
+        netResult = "\u2014";
+      }
+      var html = "<p class=\"result-label\">Die Roll</p><p class=\"value\">" + dieRoll['raw-roll'] + "</p><br>\n" +
+        "<p class=\"result-label\">Net Roll</p><p class=\"value\">" + dieRoll['net-roll'] + "</p><br>\n" +
+        "<p class=\"result-label\">Effect</p><p class=\"value\">" + netResult + "</p>\n";
+      $("#adv-det-result").html(html);
+    };
+
+    var updateDrmDisplay = function () {
+      var currentDrmString;
+      if (currentDrm < 0) {
+        currentDrmString = currentDrm.toString();
+      } else {
+        currentDrmString = "+" + currentDrm.toString();
+      }
+      $("#adv-det-net-drm-value").html(currentDrmString);
     };
 
     var initTrackEffect = function (adfTrack) {
@@ -932,9 +1111,43 @@ var AwacsApp = function ($) {
       }
     };
 
+    var addResolutionHandler = function () {
+      $("#adv-det-dice-roll-button").on('click', function () {
+        resolveDetection();
+      });
+    };
+
+    var resetResults = function () {
+      $("#adv-det-result").html("&nbsp;");
+    };
+
+    var setupDrmListener = function () {
+      detectionDrms.attachListener(function () {
+        currentDrm = detectionDrms.sumNetDRM();
+        updateDrmDisplay();
+      });
+    };
+
     return {
       'attachSection': function (adfTrack) {
         initTrackEffect(adfTrack);
+
+        if (!$('.adv-det-resolution').length) {
+          var newHtml = "<div class=\"adv-det-resolution modals adv-det-modals\" id=\"adv-det-resolution\">\n" +
+            "<p class=\"heading\">Detection Resolution</p>\n<div id=\"adv-det-drm-display\" class=\"adv-det-drm-display\">" +
+            "<p class=\"result-label\">Current Net DRM:</p><p class=\"value\" id=\"adv-det-net-drm-value\">+0</p>" +
+            "</div><input type=\"button\" class=\"dice-roll-button\" " +
+            "id=\"adv-det-dice-roll-button\" value=\"Roll Die\">\n<div class=\"adv-det-result\" " +
+            "id=\"adv-det-result\">&nbsp;</div></div>\n";
+          $(".selected-mode").append(newHtml);
+          addResolutionHandler();
+          setupDrmListener();
+        }
+        updateDrmDisplay();
+        resetResults();
+      },
+      'removeResolver': function () {
+        $(".adv-det-modals").remove();
       }
     };
   })();
