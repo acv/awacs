@@ -244,3 +244,27 @@ p.det-label {
     height: 32px;
     display: inline-table;
 }
+
+ul.int-terrain-selector-elements {
+    list-style-type: none;
+}
+
+li.int-terrain-selector-element {
+    display: inline;
+    padding: 4pt 5pt;
+    cursor: pointer;
+    border-radius: 5pt;
+    border: 1px solid deepskyblue;
+}
+
+ul.int-value-selector-elements {
+    list-style-type: none;
+}
+
+li.int-value-selector-element {
+    display: inline;
+    padding: 4pt 5pt;
+    cursor: pointer;
+    border-radius: 5pt;
+    border: 1px solid deepskyblue;
+}

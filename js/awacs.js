@@ -1326,8 +1326,12 @@ var AwacsApp = function ($) {
       if (drm['type'] === 'check') {
         html += "<input type=\"checkbox\" id=\"" + drm['name'] + "-check\" class=\"drm-checkbox " + prefix + "-drm\">\n";
       } else if (drm['type'] === 'drop') {
-        html += "<input type=\"number\" id=\"" + drm['name'] + "-drop\" class=\"drm-drop " + prefix + "-drm\" min=\"0\" " +
-          "max=\"" + drm['max-count'] + "\" value=\"0\">\n";
+        var minCount = drm['min-count'];
+        if (minCount === undefined) {
+          minCount = 0;
+        }
+        html += "<input type=\"number\" id=\"" + drm['name'] + "-drop\" class=\"drm-drop " + prefix + "-drm\" min=\"" +
+          minCount + "\" max=\"" + drm['max-count'] + "\" value=\"0\">\n";
       }
       return html;
     };
@@ -1444,13 +1448,13 @@ var AwacsApp = function ($) {
       'name': 'target-hex-near-hq',
       'type': 'check',
       'value': -1,
-      'desc': 'Target/landing hex is w/i 2 hexes from an enemy HQ (-1).',
+      'desc': 'Target/landing hex is w/i 2 hexes from an enemy HQ (-1)',
       'current': 0
     },{
       'name': 'helo-flew-over-enemy',
       'type': 'check',
       'value': -1,
-      'desc': 'SAM fire vs. Attack Helicopter which few over enemy units (not including target hex) (-1)',
+      'desc': 'SAM fire vs. Attack Helicopter which flew over enemy units (not including target hex) (-1)',
       'current': 0
     },{
       'name': 'per-wild-weasel',
@@ -1814,7 +1818,7 @@ var AwacsApp = function ($) {
 
         if (!$('.adv-adf-aaa-resolution').length) {
           var newHtml = "<div class=\"adv-adf-aaa-resolution modals adv-adf-modals\" id=\"adv-adf-aaa-resolution\">\n" +
-            "<p class=\"heading\">" + typeLabels[aaaType] + " Fire Resolution</p>\n<div id=\"adv-adf-sam-drm-display\" " +
+            "<p class=\"heading\">" + typeLabels[aaaType] + " Fire Resolution</p>\n<div id=\"adv-adf-aaa-drm-display\" " +
             "class=\"adv-adf-aaa-drm-display\">" +
             "<p class=\"result-label\">Current Net DRM:</p><p class=\"value\" id=\"adv-adf-aaa-net-drm-value\">+0</p>" +
             "</div><input type=\"button\" class=\"dice-roll-button\" " +
@@ -2010,6 +2014,333 @@ var AwacsApp = function ($) {
     };
   })();
 
+  var createModeSelector = function (title, prefix, modes) {
+    var listener;
+    var selection;
+    
+    var signalListener = function () {
+      listener();
+    };
+    
+    var refreshSelection = function () {
+      var selectedId = prefix + '-' + selection;
+      $("." + prefix + "-element").each(function (index, element) {
+        var elementId = $(element).prop('id');
+        if (elementId === selectedId) {
+          $(element).addClass("selected");
+        } else {
+          if ($(element).hasClass("selected")) {
+            $(element).removeClass("selected");
+          }
+        }
+      });
+    };
+    
+    var resetSelection = function () {
+      selection = undefined;
+      refreshSelection();
+    };
+    
+    var selectionHandler = function () {
+      var elementId = $(this).prop('id');
+      var nameParts = elementId.split('-');
+      selection = nameParts[nameParts.length - 1];
+      refreshSelection();
+      signalListener();
+    };
+    
+    var registerHandlers = function () {
+      $("." + prefix + "-element").each(function (index, element) {
+        $(element).on('click', selectionHandler);
+      });
+    };
+    
+    var getElementHtml = function (element) {
+      return "<li class=\"" + prefix + "-element\" id=\"" + prefix + "-" + element['name'] + "\">" +
+          element['label'] + "</li>\n";
+    };
+    
+    var getElementsHtml = function () {
+      var html = "<ul class=\"" + prefix + "-elements\" id=\"" + prefix + "-elements\">\n";
+      var numElements = modes.length;
+      for (var i = 0; i < numElements; i++) {
+        html += getElementHtml(modes[i]);
+      }
+      html += "</ul>\n";
+      return html;
+    };
+    
+    var getHtml = function () {
+      var html = "<div class=\"" + prefix + "-selectors\" id=\"" + prefix + "-selectors\">\n" +
+        "<p class=\"heading\">" + title + "</p>\n";
+      html += getElementsHtml();
+      html += "</div>\n";
+      return html;
+    };
+
+    return {
+      'attachSection': function (selector) {
+        if (!$("#" + prefix + "-selectors").length) {
+          resetSelection();
+          $(selector).append(getHtml());
+          registerHandlers();
+        }
+        refreshSelection();
+      },
+      'reset': function () {
+        selection = undefined;
+      },
+      'getSelection': function () {
+        return selection;
+      },
+      'attachListener': function (l) {
+        listener = l;
+      }      
+    };
+  };
+
+  var interdictionTerrainSelector = createModeSelector("Terrain", "int-terrain-selector", [
+    {
+      'label': 'Marsh/Flat',
+      'name': 'flat'
+    },{
+      'label': 'Rough/Flat Woods/Rough Woods',
+      'name': 'rough'
+    },{
+      'label': 'Highland/Highland Woods',
+      'name': 'highland'
+    },{
+      'label': 'Mountain/High Mountain',
+      'name': 'mountain'
+    }
+  ]);
+
+  var interdictionValueSelector = createModeSelector("Interdiction Value", "int-value-selector", [
+    {
+      'label': '1',
+      'name': '1'
+    },{
+      'label': '2',
+      'name': '2'
+    },{
+      'label': '3',
+      'name': '3'
+    },{
+      'label': '4',
+      'name': '4'
+    },{
+      'label': '5',
+      'name': '5'
+    },{
+      'label': '6',
+      'name': '6'
+    }
+  ]);
+
+  var advIntDRMs = createDrms("adv-int-drms", [
+    {
+      'name': 'pilot-skills',
+      'type': 'drop',
+      'value': 1,
+      'min-count': -2,
+      'max-count': 1,
+      'desc': 'Pilot skill',
+      'current': 0
+    },{
+      'name': 'high-mountain',
+      'type': 'check',
+      'value': -2,
+      'desc': 'High Mountain (-2)',
+      'current': 0
+    },{
+      'name': 'attack-helo',
+      'type': 'check',
+      'value': -1,
+      'desc': 'Attack Helicopter (-1)',
+      'current': 0
+    },{
+      'name': 'sam-result',
+      'type': 'drop',
+      'max-count': 2,
+      'value': 1,
+      'desc': 'SAM Result (+?)',
+      'current': 0
+    },{
+      'name': 'unit-intercepted',
+      'type': 'check',
+      'value': 2,
+      'desc': 'Unit was attacked by interceptors(+2)',
+      'current': 0
+    },{
+      'name': 'stand-off-weapons',
+      'type': 'check',
+      'value': 3,
+      'desc': "Stand-off weapons used (+3)",
+      'current': 0
+    }
+  ], "Advanced Interdiction DRMs");
+
+  var advInterdictionMode = (function () {
+    var terrainSelected = false;
+    var interdictionValueSelected = false;
+
+    var interdictionValueSelectedHandler = function () {
+      interdictionValueSelected = true;
+      drawRequiredSections();
+    };
+
+    var terrainSelectedHandler = function () {
+      terrainSelected = true;
+      drawRequiredSections();
+    };
+
+    var drawRequiredSections = function () {
+      if (!$(".adv-int-modal").length) {
+        $(".selected-mode").html("<div class=\"adv-int-modal\" id=\"adv-int-modal\">\n</div>\n");
+      }
+
+      if (!terrainSelected) {
+        interdictionTerrainSelector.attachSection("#adv-int-modal");
+        interdictionTerrainSelector.attachListener(terrainSelectedHandler);
+      }
+      if (!interdictionValueSelected) {
+        interdictionValueSelector.attachSection("#adv-int-modal");
+        interdictionValueSelector.attachListener(interdictionValueSelectedHandler);
+      }
+      if (terrainSelected && interdictionValueSelected) {
+        advIntDRMs.attachSection("#adv-int-modal");
+        advIntResolver.attachSection("#adv-int-modal")
+        return;
+      }
+    };
+
+    return {
+      'init': function () {
+        terrainSelected = false;
+        interdictionValueSelected = false;
+        drawRequiredSections();
+      }
+    };
+  })();
+
+  var advIntResolver = (function () {
+    var intTableRaw = [
+      [1,1,1],
+      [1,1,1,1,1],
+      [2,1,1,1,1,1],
+      [2,2,1,1,1,1,1],
+      [2,2,2,1,1,1,1,1],
+      [2,2,2,2,1,1,1,1,1],
+      [2,2,2,2,2,1,1,1,1]
+    ];
+    var columnTable = {
+      'flat': [0,0,1,1,2,2],
+      'rough': [1,1,2,2,3,3],
+      'highland': [2,3,3,4,4,5],
+      'mountain': [3,4,4,5,5,6]
+    };
+    var currentDrm = 0;
+    var result;
+    var dieRoll;
+
+    var tableColumnSelector = function (terrain, interdictValue) {
+      return columnTable[terrain][interdictValue - 1];
+    };
+
+    var lookupInterdictionValue = function (terrain, interdictValue, netRoll) {
+      var column = intTableRaw[tableColumnSelector(terrain, interdictValue)];
+      var rawValue = column[netRoll + 2];
+      if (rawValue === undefined) {
+        return "\u2014";
+      } else {
+        return rawValue;
+      }
+    };
+
+    var resolveInterdiction = function () {
+      dieRoll = rollDie(currentDrm);
+
+      var roll = dieRoll['net-roll'];
+
+      var terrain = interdictionTerrainSelector.getSelection();
+      var interdictValue = parseInt(interdictionValueSelector.getSelection());
+
+      var netResult = lookupInterdictionValue(terrain, interdictValue, roll)
+      if (netResult === undefined) {
+        netResult = "\u2014";
+      }
+      result = netResult;
+      updateResults();
+    };
+
+    var updateResults = function () {
+      if (result === undefined) {
+        return;
+      }
+      var html = "<p class=\"result-label\">Die Roll</p><p class=\"value\">" + dieRoll['raw-roll'] + "</p><br>\n" +
+        "<p class=\"result-label\">Net Roll</p><p class=\"value\">" + dieRoll['net-roll'] + "</p><br>\n" +
+        "<p class=\"result-label\">Effect</p><p class=\"value\">" + result + "</p>\n";
+      $("#adv-int-result").html(html);
+    };
+
+    var getDrms = function () {
+      return advIntDRMs.sumNetDRM();
+    };
+
+    var updateDrmDisplay = function () {
+      currentDrm = getDrms();
+      var currentDrmString;
+      if (currentDrm < 0) {
+        currentDrmString = currentDrm.toString();
+      } else {
+        currentDrmString = "+" + currentDrm.toString();
+      }
+      $("#adv-int-net-drm-value").html(currentDrmString);
+    };
+
+    var addResolutionHandler = function () {
+      $("#adv-int-dice-roll-button").on('click', function () {
+        resolveInterdiction();
+      });
+    };
+
+    var resetResults = function () {
+      result = undefined;
+      $("#adv-int-result").html("&nbsp;");
+    };
+
+    var setupDrmListener = function () {
+      advIntDRMs.attachListener(function () {
+        updateDrmDisplay();
+      });
+    };
+
+    return {
+      'attachSection': function (selector) {
+        if (!$('.adv-int-resolution').length) {
+          var newHtml = "<div class=\"adv-int-resolution modals adv-adf-modals\" id=\"adv-int-resolution\">\n" +
+            "<p class=\"heading\">Interdiction Resolution</p>\n<div id=\"adv-int-drm-display\" " +
+            "class=\"adv-int-drm-display\">" +
+            "<p class=\"result-label\">Current Net DRM:</p><p class=\"value\" id=\"adv-int-net-drm-value\">+0</p>" +
+            "</div><input type=\"button\" class=\"dice-roll-button\" " +
+            "id=\"adv-int-dice-roll-button\" value=\"Roll Die\">\n<div class=\"adv-int-result\" " +
+            "id=\"adv-int-result\">&nbsp;</div></div>\n";
+          $(selector).append(newHtml);
+          addResolutionHandler();
+          setupDrmListener();
+        }
+        updateDrmDisplay();
+        updateResults();
+      },
+      'reset': function () {
+        resetResults();
+      },
+      'removeResolver': function () {
+        $("#adv-int-resolution").remove();
+      }
+    };
+  })();
+
   var rollDie = function (modifier) {
     if (modifier === undefined) {
       modifier = 0;
@@ -2033,6 +2364,8 @@ var AwacsApp = function ($) {
       advDetMode.init();
     } else if (selectedMode === 'AdvADFMode') {
       advAdfMode.init();
+    } else if (selectedMode === 'AdvInterdictMode') {
+      advInterdictionMode.init();
     }
   };
 
