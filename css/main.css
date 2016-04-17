@@ -64,6 +64,17 @@ p.heading {
     padding-left: 30px;
 }
 
+p.extra-padding {
+    padding-top: 20px;
+}
+
+p.major-heading {
+    font-weight: bold;
+    text-align: left;
+    padding-left: 70px;
+    font-size: 115%;
+}
+
 div.selected-mode {
     display: block;
     border: 2px solid deepskyblue;
@@ -198,4 +209,38 @@ input.dice-roll-button {
 span.caveat {
     margin-left: 45px;
     font-size: 85%;
+}
+
+.adv-adf-selector {
+    display: inline-table;
+    margin-left: 10px;
+}
+
+span.adf-mode-caveat {
+    font-size: 75%;
+    font-weight: normal;
+}
+
+ul.det-types {
+    list-style-type: none;
+    margin-left: 0;
+    margin-top: 0;
+}
+
+li.det-type {
+    display: inline;
+    padding: 4pt 4pt;
+    cursor: pointer;
+    border-radius: 3pt;
+    border: 1px solid deepskyblue;
+    font-size: 10pt;
+}
+
+p.det-label {
+    font-weight: bold;
+    text-align: left;
+    padding-left: 50px;
+    margin-top: 0;
+    height: 32px;
+    display: inline-table;
 }
