@@ -91,6 +91,11 @@ var AwacsApp = function ($) {
         if (drm['current'] > drm['max-count']) {
           drm['current'] = drm['max-count'];
         }
+        if (drm['min-count'] !== undefined) {
+          if (drm['current'] < drm['min-count']) {
+            drm['current'] = drm['min-count'];
+          }
+        }
       }
       signalListenersOfDrmChange();
     };
@@ -125,7 +130,7 @@ var AwacsApp = function ($) {
         var arrayLength = drms.length;
         var total = 0;
         for (var i = 0; i < arrayLength; i++) {
-          if (drms[i]['current'] > 0) {
+          if (drms[i]['current'] != 0) {
             total += drms[i]['current'] * drms[i]['value'];
           }
         }
