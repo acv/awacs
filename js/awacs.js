@@ -2518,17 +2518,20 @@ var AwacsApp = function ($) {
     var strikeTypeSelectedHandler = function () {
       strikeTypeSelected = true;
       strikeValueSelected = false;
+      resetResults();
       drawRequiredSections();
     };
 
     var terrainSelectedHandler = function () {
       terrainSelected = true;
       strikeValueSelected = false;
+      resetResults();
       drawRequiredSections();
     };
 
     var strikeValueSelectedHandler = function () {
       strikeValueSelected = true;
+      resetResults();
       drawRequiredSections();
     };
 
@@ -2538,6 +2541,12 @@ var AwacsApp = function ($) {
           value.remove();
         }
       });
+    };
+
+    var resetResults = function () {
+      advStrikeDRMs.resetDRMs();
+      advStrikeVsNavalDRMs.resetDRMs();
+      advStrikeResolver.reset();
     };
 
     var drawRequiredSections = function () {
@@ -2568,6 +2577,10 @@ var AwacsApp = function ($) {
         advStrikeDRMs.attachSection("#adv-strike-modal");
         advStrikeVsNavalDRMs.attachSection("#adv-strike-modal");
         advStrikeResolver.attachSection("#adv-strike-modal");
+      } else {
+        advStrikeDRMs.removeDRMs();
+        advStrikeVsNavalDRMs.removeDRMs();
+        advStrikeResolver.removeResolver();
       }
     };
 
