@@ -29,6 +29,22 @@ var AwacsApp = function ($) {
       autoDrm = optAutoDrm;
     }
 
+    var formatModifier = function (num) {
+      var formatted = num.toString();
+      if (num > -1) {
+        formatted = "+" + formatted;
+      }
+      return formatted;
+    };
+
+    var getRangeOptions = function (prefix, min, max) {
+      var html = "";
+      for (var i = min; i <= max; i++) {
+        html += "<li class=\"drop-down-choice\" id=\"" + prefix + '_' + i + "\">" + formatModifier(i) + "</li>\n";
+      }
+      return html;
+    };
+
     var getInputForDRM = function (drm) {
       var html = '';
       if (drm['type'] === 'check') {
@@ -38,8 +54,12 @@ var AwacsApp = function ($) {
         if (minCount === undefined) {
           minCount = 0;
         }
-        html += "<input type=\"number\" id=\"" + drm['name'] + "-drop\" class=\"drm-drop " + prefix + "-drm\" min=\"" +
-          minCount + "\" max=\"" + drm['max-count'] + "\" value=\"0\">\n";
+        //html += "<input type=\"number\" id=\"" + drm['name'] + "-drop\" class=\"drm-drop " + prefix + "-drm\" min=\"" +
+        //  minCount + "\" max=\"" + drm['max-count'] + "\" value=\"0\">\n";
+        html += "<div class=\"drm-drop\" id=\"" + drm['name'] + "-drop\">+0</div>\n" +
+          "<ul id=\"" + drm['name'] + "-options\" class=\"floating-dropdown\">" +
+          getRangeOptions(drm['name'], minCount, drm['max-count']) +
+          "</ul>\n";
       }
       return html;
     };
@@ -87,7 +107,7 @@ var AwacsApp = function ($) {
           drm['current'] = 0;
         }
       } else if (drm['type'] === 'drop') {
-        drm['current'] = parseInt($(element).prop('value'));
+        drm['current'] = parseInt($(element).html());
         if (drm['current'] > drm['max-count']) {
           drm['current'] = drm['max-count'];
         }
@@ -104,9 +124,39 @@ var AwacsApp = function ($) {
       var arrayLength = drms.length;
       for (var i = 0; i < arrayLength; i++) {
         var elementId = drms[i]['name'] + '-' + drms[i]['type'];
-        $("#" + elementId).on('change', function () {
+        var elementSelector = $("#" + elementId);
+        elementSelector.on('change', function () {
           handleDrmChange(this);
         });
+        if (drms[i]['type'] === 'drop') {
+          var prefix = drms[i]['name'];
+          elementSelector.on('click', function () {
+            var myId = $(this).prop('id');
+            var idSplit = myId.split('-');
+            idSplit[idSplit.length - 1] = "options";
+            var parentId = idSplit.join('-');
+            var boxSelector = $("#" + parentId);
+            if (boxSelector.css('display') === 'none') {
+              boxSelector.css('display', 'block');
+            } else {
+              boxSelector.css('display', 'none');
+            }
+          });
+          var minCount = drms[i]['min-count'];
+          if (minCount === undefined) {
+            minCount = 0;
+          }
+          var maxCount = drms[i]['max-count'];
+          for (var j = minCount; j <= maxCount; j++) {
+            $("#" + prefix + '_' + j).on('click', function () {
+              var splitId = $(this).prop('id').split('_');
+              var parentSelector = $("#" + splitId[0] + "-drop");
+              parentSelector.html(formatModifier(splitId[1]));
+              parentSelector.click();
+              parentSelector.change();
+            });
+          }
+        }
       }
     };
 
@@ -2240,7 +2290,7 @@ var AwacsApp = function ($) {
       'current': 0
     },{
       'desc': 'Target is a "Targeted -1/-2" Unit/Installation (-1 or -2)',
-      'name': 'hax-targetted',
+      'name': 'has-targetted',
       'type': 'drop',
       'value': 1,
       'min-count': -2,

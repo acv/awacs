@@ -196,6 +196,19 @@ input.drm-drop {
     font-size: 10pt;
 }
 
+
+div.drm-drop {
+    vertical-align: middle;
+    display: inline-table;
+    border: 1px solid black;
+    width: 21px;
+    height: 18px;
+    padding-left: 5px;
+    padding-top: 3px;
+    margin-right: 10px;
+    font-size: 10pt;
+}
+
 input.dice-roll-button {
     font-size: 12pt;
     font-weight: bold;
@@ -305,4 +318,29 @@ li.strike-type-selector-element {
     cursor: pointer;
     border-radius: 5pt;
     border: 1px solid deepskyblue;
+}
+
+ul.floating-dropdown {
+    display: none;
+    position: absolute;
+    background-color: transparent;
+    box-shadow: 4px 8px 8px 4px rgba(0,0,0,0.2);
+    padding: 0;
+    list-style-type: none;
+    width: auto;
+}
+
+li.drop-down-choice {
+    padding: 5px 20px 4px;
+    text-decoration: none;
+    display: block;
+    background-color: dodgerblue;
+}
+
+li.drop-down-choice:hover {
+    background-color: deepskyblue;
+}
+
+.drop-down-visible {
+    display: block;
 }
