@@ -2026,6 +2026,9 @@ var AwacsApp = function ($) {
 
     var lookupInterdictionValue = function (terrain, interdictValue, netRoll) {
       var column = intTableRaw[tableColumnSelector(terrain, interdictValue)];
+      if (netRoll < -2) {
+        netRoll = -2;
+      }
       var rawValue = column[netRoll + 2];
       if (rawValue === undefined) {
         return "\u2014";
@@ -2158,13 +2161,13 @@ var AwacsApp = function ($) {
       'name': 'naval'
     },{
       'label': 'Supreme HQ',
-      'name': 'sup-hq'
+      'name': 'suphq'
     },{
       'label': 'US HQ',
-      'name': 'us-hq'
+      'name': 'ushq'
     },{
       'label': 'Other HQ',
-      'name': 'other-hq'
+      'name': 'otherhq'
     },{
       'label': 'Scud',
       'name': 'scud'
@@ -2222,6 +2225,279 @@ var AwacsApp = function ($) {
     }
   ]);
 
+  var advStrikeDRMs = createDrms("adv-strike-drms", [
+    {
+      'desc': 'Target hex is overstacked (-2)',
+      'name': 'target-overstack',
+      'type': 'check',
+      'value': -2,
+      'current': 0
+    },{
+      'desc': 'High Mountain (-2)',
+      'name': 'high-mountain',
+      'type': 'check',
+      'value': -2,
+      'current': 0
+    },{
+      'desc': 'Target is a "Targeted -1/-2" Unit/Installation (-1 or -2)',
+      'name': 'hax-targetted',
+      'type': 'drop',
+      'value': 1,
+      'min-count': -2,
+      'max-count': 0,
+      'current': 0
+    },{
+      'desc': 'Pilot skill',
+      'name': 'pilot-skills',
+      'type': 'drop',
+      'value': 1,
+      'min-count': -2,
+      'max-count': 1,
+      'current': 0
+    },{
+      'desc': 'SAM Result (+?)',
+      'name': 'sam-result',
+      'type': 'drop',
+      'max-count': 2,
+      'value': 1,
+      'current': 0
+    },{
+      'desc': 'AH-1Z Wild Weasel Strike [Optional] (+1)',
+      'name': 'ah-1z-wild-weasel',
+      'type': 'check',
+      'value': 1,
+      'current': 0
+    },{
+      'desc': 'Non-US Cruise Missile Strike (+1)',
+      'name': 'non-us-cruise',
+      'type': 'check',
+      'value': 1,
+      'current': 0
+    },{
+      'desc': 'Striking HQ is reduced-strength (+1)',
+      'name': 'reduced-hq',
+      'type': 'check',
+      'value': 1,
+      'current': 0
+    },{
+      'desc': 'Target is a Bridge (+2)',
+      'name': 'vs-bridge',
+      'type': 'check',
+      'value': 2,
+      'current': 0
+    },{
+      'desc': 'Unit was attacked by interceptors (+2)',
+      'name': 'unit-intercepted',
+      'type': 'check',
+      'value': 2,
+      'current': 0
+    },{
+      'desc': 'Theater Weapon Busting Strike Mission (+2)',
+      'name': 'theater-weapon-busting',
+      'type': 'check',
+      'value': 2,
+      'current': 0
+    },{
+      'desc': 'For all AIR strikes in Overcast weather (+2)',
+      'name': 'overcast-weather',
+      'type': 'check',
+      'value': 2,
+      'current': 0
+    },{
+      'desc': "Target is an Enemy AAA Track (+3)",
+      'name': 'target-enemy-aaa',
+      'type': 'check',
+      'value': 3,
+      'current': 0
+    },{
+      'desc': "Air or HQ Strike in Storm turn (+3)",
+      'name': 'storm-weather',
+      'type': 'check',
+      'value': 3,
+      'current': 0
+    },{
+      'desc': "Stand-off Air vs. Leg Unit (+3)",
+      'name': 'stand-off-air-vs-leg',
+      'type': 'check',
+      'value': 3,
+      'current': 0
+    }
+  ], "Advanced Strike DRMs");
+
+  var advStrikeVsNavalDRMs = createDrms("adv-strike-naval-drms", [
+    {
+      'desc': 'Naval Air Unit conducting strike (-1)',
+      'name': 'naval-air-striking',
+      'type': 'check',
+      'value': -1,
+      'current': 0
+    },{
+      'desc': 'Point Detection (-1)',
+      'name': 'point-detection',
+      'type': 'check',
+      'value': -1,
+      'current': 0
+    },{
+      'desc': 'Air unit in non-Stand-off Strike (-1)',
+      'name': 'not-stand-off',
+      'type': 'check',
+      'value': -1,
+      'current': 0
+    },{
+      'desc': 'Theater Weapon (+1)',
+      'name': 'theater-weapon',
+      'type': 'check',
+      'value': 1,
+      'current': 0
+    }
+  ], "Strike Vs. Naval DRMs (cumulative with above)");
+
+  var advStrikeResolver = (function () {
+    var intTableRaw = [
+      [1,1,1],
+      [1,1,1,1,1],
+      [2,1,1,1,1,1],
+      [2,2,1,1,1,1,1],
+      ['X', 'X', 2, 2, 1, 1, 1, 1],
+      ['X', 'X', 'X', 2, 2, 1, 1, 1],
+      ['X', 'X', 'X', 'X', 2, 2, 1, 1],
+      ['X', 'X', 'X', 'X', 'X', 2, 2, 1],
+      ['X', 'X', 'X', 'X', 2, 2, 1, 1, 1]
+    ];
+    var columnTable = {
+      'flat': {'1': 2, '2': 3, '3': 4, '4': 5, '5': 6, '6': 7, 'suphq': 3, 'otherhq': 4, 'ushq': 5,
+        'helo-1': 3, 'helo-2': 5, 'scud': 7, 'missile': 7, 'cruise': 8},
+      'rough': {'1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, 'suphq': 2, 'otherhq': 3, 'ushq': 4,
+        'helo-1': 2, 'helo-2': 4, 'scud': 7, 'missile': 7, 'cruise': 8},
+      'highland': {'1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, 'suphq': 1, 'otherhq': 2, 'ushq': 3,
+        'helo-1': 1, 'helo-2': 3, 'scud': 7, 'missile': 7, 'cruise': 8},
+      'mountain': {'2': 0, '3': 1, '4': 2, '5': 3, '6': 5, 'suphq': 0, 'otherhq': 1, 'ushq': 2,
+        'helo-1': 0, 'helo-2': 2, 'scud': 7, 'missile': 7, 'cruise': 8},
+      'urban': {'2': 0, '3': 1, '4': 2, '5': 3, '6': 5, 'suphq': 0, 'otherhq': 1, 'ushq': 2,
+        'helo-1': 0, 'helo-2': 2, 'scud': 7, 'missile': 7, 'cruise': 8},
+      'adf': {'2': 0, '3': 1, '4': 2, '5': 3, '6': 4, 'scud': 0, 'cruise': 3, 'weasel': 5},
+      'hardened': {'2': 0, '3': 1, '4': 2, '5': 3, '6': 4, 'scud': 2, 'cruise': 3, 'naval-1': 2, 'naval-2': 3,
+        'naval-3': 4}
+    };
+    var currentDrm = 0;
+    var result;
+    var dieRoll;
+
+    var tableColumnSelector = function (terrain, strikeCode) {
+      return columnTable[terrain][strikeCode];
+    };
+
+    var lookupStrikeValue = function (terrain, strikeCode, netRoll) {
+      var column = intTableRaw[tableColumnSelector(terrain, strikeCode)];
+      if (column === undefined) {
+        return "\u2014";
+      }
+      if (netRoll < -2) {
+        netRoll = -2;
+      }
+      var rawValue = column[netRoll + 2];
+      if (rawValue === undefined) {
+        return "\u2014";
+      } else {
+        return rawValue;
+      }
+    };
+
+    var resolveStrike = function () {
+      dieRoll = rollDie(currentDrm);
+
+      var roll = dieRoll['net-roll'];
+
+      var terrain = strikeTerrainSelector.getSelection();
+      var strikeType = strikeTypeSelector.getSelection();
+      var strikeCode = strikeType;
+      if (strikeType === "air") {
+        strikeCode = airStrikeValueSelector.getSelection();
+      } else if (strikeType === "helo") {
+        strikeCode = strikeType + "-" + heloStrikeValueSelector.getSelection();
+      } else if (strikeType === "naval") {
+        strikeCode = strikeType + "-" + navalStrikeValueSelector.getSelection();
+      }
+
+      var netResult = lookupStrikeValue(terrain, strikeCode, roll);
+      if (netResult === undefined) {
+        netResult = "\u2014";
+      }
+      result = netResult;
+      updateResults();
+    };
+
+    var updateResults = function () {
+      if (result === undefined) {
+        return;
+      }
+      var html = "<p class=\"result-label\">Die Roll</p><p class=\"value\">" + dieRoll['raw-roll'] + "</p><br>\n" +
+        "<p class=\"result-label\">Net Roll</p><p class=\"value\">" + dieRoll['net-roll'] + "</p><br>\n" +
+        "<p class=\"result-label\">Effect</p><p class=\"value\">" + result + "</p>\n";
+      $("#adv-strike-result").html(html);
+    };
+
+    var getDrms = function () {
+      return advStrikeDRMs.sumNetDRM() + advStrikeVsNavalDRMs.sumNetDRM();
+    };
+
+    var updateDrmDisplay = function () {
+      currentDrm = getDrms();
+      var currentDrmString;
+      if (currentDrm < 0) {
+        currentDrmString = currentDrm.toString();
+      } else {
+        currentDrmString = "+" + currentDrm.toString();
+      }
+      $("#adv-strike-net-drm-value").html(currentDrmString);
+    };
+
+    var addResolutionHandler = function () {
+      $("#adv-strike-dice-roll-button").on('click', function () {
+        resolveStrike();
+      });
+    };
+
+    var resetResults = function () {
+      result = undefined;
+      $("#adv-strike-result").html("&nbsp;");
+    };
+
+    var setupDrmListener = function () {
+      advStrikeDRMs.attachListener(function () {
+        updateDrmDisplay();
+      });
+      advStrikeVsNavalDRMs.attachListener(function () {
+        updateDrmDisplay();
+      });
+    };
+
+    return {
+      'attachSection': function (selector) {
+        if (!$('#adv-strike-resolution').length) {
+          var newHtml = "<div class=\"adv-strike-resolution modals adv-strike-modals\" id=\"adv-strike-resolution\">\n" +
+            "<p class=\"heading\">Strike Resolution</p>\n<div id=\"adv-strike-drm-display\" " +
+            "class=\"adv-strike-drm-display\">" +
+            "<p class=\"result-label\">Current Net DRM:</p><p class=\"value\" id=\"adv-strike-net-drm-value\">+0</p>" +
+            "</div><input type=\"button\" class=\"dice-roll-button\" " +
+            "id=\"adv-strike-dice-roll-button\" value=\"Roll Die\">\n<div class=\"adv-strike-result\" " +
+            "id=\"adv-strike-result\">&nbsp;</div></div>\n";
+          $(selector).append(newHtml);
+          addResolutionHandler();
+          setupDrmListener();
+        }
+        updateDrmDisplay();
+        updateResults();
+      },
+      'reset': function () {
+        resetResults();
+      },
+      'removeResolver': function () {
+        $("#adv-strike-resolution").remove();
+      }
+    };
+  })();
+
   var advStrikeMode = (function () {
     var terrainSelected = false;
     var strikeTypeSelected = false;
@@ -2231,9 +2507,9 @@ var AwacsApp = function ($) {
       'ww': undefined,
       'helo': heloStrikeValueSelector,
       'naval': navalStrikeValueSelector,
-      'sup-hq': undefined,
-      'us-hq': undefined,
-      'other-hq': undefined,
+      'suphq': undefined,
+      'ushq': undefined,
+      'otherhq': undefined,
       'scud': undefined,
       'cruise': undefined,
       'missile': undefined
@@ -2289,7 +2565,9 @@ var AwacsApp = function ($) {
         }
       }
       if (terrainSelected && strikeTypeSelected && strikeValueSelected) {
-        return;
+        advStrikeDRMs.attachSection("#adv-strike-modal");
+        advStrikeVsNavalDRMs.attachSection("#adv-strike-modal");
+        advStrikeResolver.attachSection("#adv-strike-modal");
       }
     };
 
