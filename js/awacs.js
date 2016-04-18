@@ -1,5 +1,7 @@
 /**
  * Created by acv on 2016-04-14.
+ *
+ * MIT Licensed.
  */
 
 var AwacsApp = function ($) {
