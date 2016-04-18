@@ -13,6 +13,142 @@ var AwacsApp = function ($) {
     "AdvInterdictMode"
   ];
 
+  var createDrms = function (prefix, drms, optLabel, optAutoDrm) {
+    var listeners = [];
+    var that = this;  // Self reference.
+    var label = "DRMs";
+    var autoDrm = 0;
+
+    if (optLabel !== undefined) {
+      label = optLabel;
+    }
+
+    if (optAutoDrm !== undefined) {
+      autoDrm = optAutoDrm;
+    }
+
+    var getInputForDRM = function (drm) {
+      var html = '';
+      if (drm['type'] === 'check') {
+        html += "<input type=\"checkbox\" id=\"" + drm['name'] + "-check\" class=\"drm-checkbox " + prefix + "-drm\">\n";
+      } else if (drm['type'] === 'drop') {
+        var minCount = drm['min-count'];
+        if (minCount === undefined) {
+          minCount = 0;
+        }
+        html += "<input type=\"number\" id=\"" + drm['name'] + "-drop\" class=\"drm-drop " + prefix + "-drm\" min=\"" +
+          minCount + "\" max=\"" + drm['max-count'] + "\" value=\"0\">\n";
+      }
+      return html;
+    };
+
+    var drmHtmlSnippets = function () {
+      var arrayLength = drms.length;
+      var html = '';
+      for (var i = 0; i < arrayLength; i++) {
+        html += "<li class=\"drm-modifier\" id=\"" + drms[i]['name'] + "\">\n";
+        html += getInputForDRM(drms[i]);
+        html += drms[i]['desc'];
+        if (drms[i]['caveat'] !== undefined) {
+          html += "<br>\n<span class=\"caveat\">" + drms[i]['caveat'] + "</span>";
+        }
+        html += "\n</li>\n";
+      }
+      return html;
+    };
+
+    var signalListenersOfDrmChange = function () {
+      var numListener = listeners.length;
+      for (var i = 0; i < numListener; i++) {
+        listeners[i](that);
+      }
+    };
+
+    var handleDrmChange = function (element) {
+      var elementId = $(element).prop('id');
+      var numDrm = drms.length;
+      var drm;
+      for (var i = 0; i < numDrm; i++) {
+        var drmId = drms[i]['name'] + '-' + drms[i]['type'];
+        if (drmId === elementId) {
+          drm = drms[i];
+          break;
+        }
+      }
+      if (drm === undefined) {
+        return;  // Not expected!
+      }
+      if (drm['type'] === 'check') {
+        if ($(element).prop('checked')) {
+          drm['current'] = 1;
+        } else {
+          drm['current'] = 0;
+        }
+      } else if (drm['type'] === 'drop') {
+        drm['current'] = parseInt($(element).prop('value'));
+        if (drm['current'] > drm['max-count']) {
+          drm['current'] = drm['max-count'];
+        }
+      }
+      signalListenersOfDrmChange();
+    };
+
+    var addChangeHandlers = function () {
+      var arrayLength = drms.length;
+      for (var i = 0; i < arrayLength; i++) {
+        var elementId = drms[i]['name'] + '-' + drms[i]['type'];
+        $("#" + elementId).on('change', function () {
+          handleDrmChange(this);
+        });
+      }
+    };
+
+    return {
+      'attachSection': function (selector) {
+        if (selector === undefined) {
+          selector = ".selected-mode";
+        }
+        if (!$('#' + prefix + '-modifiers').length) {
+          var newHtml = "<div class=\"" + prefix + "-modifiers modals " + prefix + "-modals\" id=\"" + prefix +
+            "-modifiers\">\n<p class=\"heading\">" + label + "</p>\n<ul class=\"drm-modifiers\" id=\"" + prefix + "-drm\">" +
+            drmHtmlSnippets() + "\n</ul>\n</div>";
+          $(selector).append(newHtml);
+          addChangeHandlers();
+        }
+      },
+      'attachListener': function (listener) {
+        listeners.push(listener);
+      },
+      'sumNetDRM': function () {
+        var arrayLength = drms.length;
+        var total = 0;
+        for (var i = 0; i < arrayLength; i++) {
+          if (drms[i]['current'] > 0) {
+            total += drms[i]['current'] * drms[i]['value'];
+          }
+        }
+        return total + autoDrm;
+      },
+      'resetDRMs': function () {
+        var arrayLength = drms.length;
+        for (var i = 0; i < arrayLength; i++) {
+          drms[i]['current'] = 0;
+
+        }
+        $("." + prefix + "-drm").each(function (index, element) {
+          if ($(element).hasClass('drm-checkbox')) {
+            $(element).prop('checked', false);
+          } else if ($(element).hasClass('drm-drop')) {
+            $(element).prop('value', 0);
+          }
+        });
+      },
+      'removeDRMs': function () {
+        $("#" + prefix + "-modifiers").remove();
+      }
+    };
+  };
+
   var playerSelector = (function () {
     var currentPlayer = "Allied";
     var listeners = [];
@@ -193,160 +329,45 @@ var AwacsApp = function ($) {
     }
   })();
 
-  var stdAdfDRMs = (function () {
-    var drms = [
-      {
-        'name': 'dist-install',
-        'type': 'check',
-        'value': -2,
-        'desc': 'Target within 2 hexes from Airfield, Installation or Naval Unit. (-2)',
-        'caveat': undefined,
-        'current': 0
-      }, {
-        'name': 'adj-mech',
-        'type': 'check',
-        'value': -1,
-        'desc': 'Target is in or adjacent a hex containing enemy Armor or Mechanized unit (-1)',
-        'caveat': '(Amphibiously assaulting units excepted).',
-        'current': 0
-      }, {
-        'name': 'helo-over-enemy',
-        'type': 'check',
-        'value': -1,
-        'desc': 'Attacker Helicopter/Airmobile unit flew over enemy unit (-1)',
-        'caveat': '(not including target hex).',
-        'current': 0
-      }, {
-        'name': 'escort-air-point',
-        'type': 'drop',
-        'max-count': 2,
-        'value': 1,
-        'desc': 'Escorting Air Points (max 2). (+1 each)',
-        'caveat': undefined,
-        'current': 0
-      }, {
-        'name': 'air-transport-friendly',
-        'type': 'check',
-        'value': 3,
-        'desc': 'Mission is Air Transport in home or friendly country. (+3)',
-        'caveat': undefined,
-        'current': 0
-      }
-    ];
-    var listeners = [];
-    var that = this;  // Self reference.
-
-    var getInputForDRM = function (drm) {
-      var html = '';
-      if (drm['type'] === 'check') {
-        html += "<input type=\"checkbox\" id=\"" + drm['name'] + "-check\" class=\"drm-checkbox std-adf-drm\">\n";
-      } else if (drm['type'] === 'drop') {
-        html += "<input type=\"number\" id=\"" + drm['name'] + "-drop\" class=\"drm-drop std-adf-drm\" min=\"0\" " +
-          "max=\"" + drm['max-count'] + "\" value=\"0\">\n";
-      }
-      return html;
-    };
-
-    var drmHtmlSnippets = function () {
-      var arrayLength = drms.length;
-      var html = '';
-      for (var i = 0; i < arrayLength; i++) {
-        html += "<li class=\"drm-modifier\" id=\"" + drms[i]['name'] + "\">\n";
-        html += getInputForDRM(drms[i]);
-        html += drms[i]['desc'];
-        if (drms[i]['caveat'] !== undefined) {
-          html += "<br>\n<span class=\"caveat\">" + drms[i]['caveat'] + "</span>";
-        }
-        html += "\n</li>\n";
-      }
-      return html;
-    };
-
-    var signalListenersOfDrmChange = function () {
-      var numListener = listeners.length;
-      for (var i = 0; i < numListener; i++) {
-        listeners[i](that);
-      }
-    };
-
-    var handleDrmChange = function (element) {
-      var elementId = $(element).prop('id');
-      var numDrm = drms.length;
-      var drm;
-      for (var i = 0; i < numDrm; i++) {
-        var drmId = drms[i]['name'] + '-' + drms[i]['type'];
-        if (drmId === elementId) {
-          drm = drms[i];
-          break;
-        }
-      }
-      if (drm === undefined) {
-        return;  // Not expected!
-      }
-      if (drm['type'] === 'check') {
-        if ($(element).prop('checked')) {
-          drm['current'] = 1;
-        } else {
-          drm['current'] = 0;
-        }
-      } else if (drm['type'] === 'drop') {
-        drm['current'] = parseInt($(element).prop('value'));
-        if (drm['current'] > drm['max-count']) {
-          drm['current'] = drm['max-count'];
-        }
-      }
-      signalListenersOfDrmChange();
-    };
-
-    var addChangeHandlers = function () {
-      var arrayLength = drms.length;
-      for (var i = 0; i < arrayLength; i++) {
-        var elementId = drms[i]['name'] + '-' + drms[i]['type'];
-        $("#" + elementId).on('change', function () {
-          handleDrmChange(this);
-        });
-      }
-    };
-
-    return {
-      'attachSection': function () {
-        if (!$('.std-adf-modifiers').length) {
-          var newHtml = "<div class=\"std-adf-modifiers modals std-adf-modals hidden\" id=\"std-adf-modifiers\">\n" +
-            "<p class=\"heading\">DRMs</p>\n<ul class=\"drm-modifiers\" id=\"std-adf-drm\">" +
-              drmHtmlSnippets() + "\n</ul>\n</div>";
-          $(".selected-mode").prepend(newHtml);
-          addChangeHandlers();
-        }
-      },
-      'attachListener': function (listener) {
-        listeners.push(listener);
-      },
-      'sumNetDRM': function () {
-        var arrayLength = drms.length;
-        var total = 0;
-        for (var i = 0; i < arrayLength; i++) {
-          if (drms[i]['current'] > 0) {
-            total += drms[i]['current'] * drms[i]['value'];
-          }
-        }
-        return total;
-      },
-      'resetDRMs': function () {
-        var arrayLength = drms.length;
-        for (var i = 0; i < arrayLength; i++) {
-          drms[i]['current'] = 0;
-
-        }
-        $(".std-adf-drm").each(function (index, element) {
-          if ($(element).hasClass('drm-checkbox')) {
-            $(element).prop('checked', false);
-          } else if ($(element).hasClass('drm-drop')) {
-            $(element).prop('value', 0);
-          }
-        });
-      }
-    };
-  })();
+  var stdAdfDRMs = createDrms("std-adf", [
+    {
+      'name': 'dist-install',
+      'type': 'check',
+      'value': -2,
+      'desc': 'Target within 2 hexes from Airfield, Installation or Naval Unit. (-2)',
+      'caveat': undefined,
+      'current': 0
+    }, {
+      'name': 'adj-mech',
+      'type': 'check',
+      'value': -1,
+      'desc': 'Target is in or adjacent a hex containing enemy Armor or Mechanized unit (-1)',
+      'caveat': '(Amphibiously assaulting units excepted).',
+      'current': 0
+    }, {
+      'name': 'helo-over-enemy',
+      'type': 'check',
+      'value': -1,
+      'desc': 'Attacker Helicopter/Airmobile unit flew over enemy unit (-1)',
+      'caveat': '(not including target hex).',
+      'current': 0
+    }, {
+      'name': 'escort-air-point',
+      'type': 'drop',
+      'max-count': 2,
+      'value': 1,
+      'desc': 'Escorting Air Points (max 2). (+1 each)',
+      'caveat': undefined,
+      'current': 0
+    }, {
+      'name': 'air-transport-friendly',
+      'type': 'check',
+      'value': 3,
+      'desc': 'Mission is Air Transport in home or friendly country. (+3)',
+      'caveat': undefined,
+      'current': 0
+    }
+  ]);
 
   var stdAdfResolver = (function () {
     var stdAdfResultTable = {
@@ -876,13 +897,12 @@ var AwacsApp = function ($) {
     };
   })();
 
-  var detectionDrms = (function () {
-    var drms = [
+  var detectionDrms = createDrms("adv-det", [
       {
         'name': 'target-near-hq',
         'type': 'check',
         'value': -1,
-        'desc': 'Target within 2 hexes from Detecting player\'s HQ (-1).',
+        'desc': 'Target within 2 hexes from Detecting player\'s HQ (-1)',
         'current': 0
       },{
         'name': 'helo-through-hex',
@@ -940,124 +960,7 @@ var AwacsApp = function ($) {
         'desc': 'Defender has AWACS Advantage of "2" (PRC restrictions in NWT) (-1)',
         'current': 0
       }
-    ];
-    var listeners = [];
-    var that = this;  // Self reference.
-
-    var getInputForDRM = function (drm) {
-      var html = '';
-      if (drm['type'] === 'check') {
-        html += "<input type=\"checkbox\" id=\"" + drm['name'] + "-check\" class=\"drm-checkbox adv-det-drm\">\n";
-      } else if (drm['type'] === 'drop') {
-        html += "<input type=\"number\" id=\"" + drm['name'] + "-drop\" class=\"drm-drop adv-det-drm\" min=\"0\" " +
-          "max=\"" + drm['max-count'] + "\" value=\"0\">\n";
-      }
-      return html;
-    };
-
-    var drmHtmlSnippets = function () {
-      var arrayLength = drms.length;
-      var html = '';
-      for (var i = 0; i < arrayLength; i++) {
-        html += "<li class=\"drm-modifier\" id=\"" + drms[i]['name'] + "\">\n";
-        html += getInputForDRM(drms[i]);
-        html += drms[i]['desc'];
-        if (drms[i]['caveat'] !== undefined) {
-          html += "<br>\n<span class=\"caveat\">" + drms[i]['caveat'] + "</span>";
-        }
-        html += "\n</li>\n";
-      }
-      return html;
-    };
-
-    var signalListenersOfDrmChange = function () {
-      var numListener = listeners.length;
-      for (var i = 0; i < numListener; i++) {
-        listeners[i](that);
-      }
-    };
-
-    var handleDrmChange = function (element) {
-      var elementId = $(element).prop('id');
-      var numDrm = drms.length;
-      var drm;
-      for (var i = 0; i < numDrm; i++) {
-        var drmId = drms[i]['name'] + '-' + drms[i]['type'];
-        if (drmId === elementId) {
-          drm = drms[i];
-          break;
-        }
-      }
-      if (drm === undefined) {
-        return;  // Not expected!
-      }
-      if (drm['type'] === 'check') {
-        if ($(element).prop('checked')) {
-          drm['current'] = 1;
-        } else {
-          drm['current'] = 0;
-        }
-      } else if (drm['type'] === 'drop') {
-        drm['current'] = parseInt($(element).prop('value'));
-        if (drm['current'] > drm['max-count']) {
-          drm['current'] = drm['max-count'];
-        }
-      }
-      signalListenersOfDrmChange();
-    };
-
-    var addChangeHandlers = function () {
-      var arrayLength = drms.length;
-      for (var i = 0; i < arrayLength; i++) {
-        var elementId = drms[i]['name'] + '-' + drms[i]['type'];
-        $("#" + elementId).on('change', function () {
-          handleDrmChange(this);
-        });
-      }
-    };
-
-    return {
-      'attachSection': function () {
-        if (!$('#adv-det-modifiers').length) {
-          var newHtml = "<div class=\"det-modifiers modals adv-det-modals\" id=\"adv-det-modifiers\">\n" +
-            "<p class=\"heading\">DRMs</p>\n<ul class=\"drm-modifiers\" id=\"adv-det-drm\">" +
-            drmHtmlSnippets() + "\n</ul>\n</div>";
-          $(".selected-mode").append(newHtml);
-          addChangeHandlers();
-        }
-      },
-      'attachListener': function (listener) {
-        listeners.push(listener);
-      },
-      'sumNetDRM': function () {
-        var arrayLength = drms.length;
-        var total = 0;
-        for (var i = 0; i < arrayLength; i++) {
-          if (drms[i]['current'] > 0) {
-            total += drms[i]['current'] * drms[i]['value'];
-          }
-        }
-        return total;
-      },
-      'resetDRMs': function () {
-        var arrayLength = drms.length;
-        for (var i = 0; i < arrayLength; i++) {
-          drms[i]['current'] = 0;
-
-        }
-        $(".adv-det-drm").each(function (index, element) {
-          if ($(element).hasClass('drm-checkbox')) {
-            $(element).prop('checked', false);
-          } else if ($(element).hasClass('drm-drop')) {
-            $(element).prop('value', 0);
-          }
-        });
-      },
-      'removeDRMs': function () {
-        $("#adv-det-modifiers").remove();
-      }
-    };
-  })();
+    ], "Detection DRMs");
 
   var detectionResolver = (function () {
     var detectionModifiers = {
@@ -1306,142 +1209,6 @@ var AwacsApp = function ($) {
       }
     };
   })();
-
-  var createDrms = function (prefix, drms, optLabel, optAutoDrm) {
-    var listeners = [];
-    var that = this;  // Self reference.
-    var label = "DRMs";
-    var autoDrm = 0;
-
-    if (optLabel !== undefined) {
-      label = optLabel;
-    }
-
-    if (optAutoDrm !== undefined) {
-      autoDrm = optAutoDrm;
-    }
-
-    var getInputForDRM = function (drm) {
-      var html = '';
-      if (drm['type'] === 'check') {
-        html += "<input type=\"checkbox\" id=\"" + drm['name'] + "-check\" class=\"drm-checkbox " + prefix + "-drm\">\n";
-      } else if (drm['type'] === 'drop') {
-        var minCount = drm['min-count'];
-        if (minCount === undefined) {
-          minCount = 0;
-        }
-        html += "<input type=\"number\" id=\"" + drm['name'] + "-drop\" class=\"drm-drop " + prefix + "-drm\" min=\"" +
-          minCount + "\" max=\"" + drm['max-count'] + "\" value=\"0\">\n";
-      }
-      return html;
-    };
-
-    var drmHtmlSnippets = function () {
-      var arrayLength = drms.length;
-      var html = '';
-      for (var i = 0; i < arrayLength; i++) {
-        html += "<li class=\"drm-modifier\" id=\"" + drms[i]['name'] + "\">\n";
-        html += getInputForDRM(drms[i]);
-        html += drms[i]['desc'];
-        if (drms[i]['caveat'] !== undefined) {
-          html += "<br>\n<span class=\"caveat\">" + drms[i]['caveat'] + "</span>";
-        }
-        html += "\n</li>\n";
-      }
-      return html;
-    };
-
-    var signalListenersOfDrmChange = function () {
-      var numListener = listeners.length;
-      for (var i = 0; i < numListener; i++) {
-        listeners[i](that);
-      }
-    };
-
-    var handleDrmChange = function (element) {
-      var elementId = $(element).prop('id');
-      var numDrm = drms.length;
-      var drm;
-      for (var i = 0; i < numDrm; i++) {
-        var drmId = drms[i]['name'] + '-' + drms[i]['type'];
-        if (drmId === elementId) {
-          drm = drms[i];
-          break;
-        }
-      }
-      if (drm === undefined) {
-        return;  // Not expected!
-      }
-      if (drm['type'] === 'check') {
-        if ($(element).prop('checked')) {
-          drm['current'] = 1;
-        } else {
-          drm['current'] = 0;
-        }
-      } else if (drm['type'] === 'drop') {
-        drm['current'] = parseInt($(element).prop('value'));
-        if (drm['current'] > drm['max-count']) {
-          drm['current'] = drm['max-count'];
-        }
-      }
-      signalListenersOfDrmChange();
-    };
-
-    var addChangeHandlers = function () {
-      var arrayLength = drms.length;
-      for (var i = 0; i < arrayLength; i++) {
-        var elementId = drms[i]['name'] + '-' + drms[i]['type'];
-        $("#" + elementId).on('change', function () {
-          handleDrmChange(this);
-        });
-      }
-    };
-
-    return {
-      'attachSection': function (selector) {
-        if (selector === undefined) {
-          selector = ".selected-mode";
-        }
-        if (!$('#' + prefix + '-modifiers').length) {
-          var newHtml = "<div class=\"" + prefix + "-modifiers modals " + prefix + "-modals\" id=\"" + prefix +
-            "-modifiers\">\n<p class=\"heading\">" + label + "</p>\n<ul class=\"drm-modifiers\" id=\"" + prefix + "-drm\">" +
-            drmHtmlSnippets() + "\n</ul>\n</div>";
-          $(selector).append(newHtml);
-          addChangeHandlers();
-        }
-      },
-      'attachListener': function (listener) {
-        listeners.push(listener);
-      },
-      'sumNetDRM': function () {
-        var arrayLength = drms.length;
-        var total = 0;
-        for (var i = 0; i < arrayLength; i++) {
-          if (drms[i]['current'] > 0) {
-            total += drms[i]['current'] * drms[i]['value'];
-          }
-        }
-        return total + autoDrm;
-      },
-      'resetDRMs': function () {
-        var arrayLength = drms.length;
-        for (var i = 0; i < arrayLength; i++) {
-          drms[i]['current'] = 0;
-
-        }
-        $("." + prefix + "-drm").each(function (index, element) {
-          if ($(element).hasClass('drm-checkbox')) {
-            $(element).prop('checked', false);
-          } else if ($(element).hasClass('drm-drop')) {
-            $(element).prop('value', 0);
-          }
-        });
-      },
-      'removeDRMs': function () {
-        $("#" + prefix + "-modifiers").remove();
-      }
-    };
-  };
 
   var advAdfSamDRMs = createDrms("adv-adf-sam", [
     {
