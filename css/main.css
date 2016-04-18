@@ -268,3 +268,41 @@ li.int-value-selector-element {
     border-radius: 5pt;
     border: 1px solid deepskyblue;
 }
+
+ul.strike-value-selector-elements {
+    list-style-type: none;
+}
+
+li.strike-value-selector-element {
+    display: inline;
+    padding: 4pt 5pt;
+    cursor: pointer;
+    border-radius: 5pt;
+    border: 1px solid deepskyblue;
+}
+
+ul.strike-terrain-selector-elements {
+    list-style-type: none;
+}
+
+li.strike-terrain-selector-element {
+    display: inline-block;
+    padding: 4pt 5pt;
+    margin-bottom: 8pt;
+    cursor: pointer;
+    border-radius: 5pt;
+    border: 1px solid deepskyblue;
+}
+
+ul.strike-type-selector-elements {
+    list-style-type: none;
+}
+
+li.strike-type-selector-element {
+    display: inline-block;
+    padding: 4pt 5pt;
+    margin-bottom: 8pt;
+    cursor: pointer;
+    border-radius: 5pt;
+    border: 1px solid deepskyblue;
+}

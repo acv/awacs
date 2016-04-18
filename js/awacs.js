@@ -1856,6 +1856,10 @@ var AwacsApp = function ($) {
         }
         refreshSelection();
       },
+      'remove': function () {
+        selection = undefined;
+        $("#" + prefix + "-selectors").remove();
+      },
       'reset': function () {
         selection = undefined;
       },
@@ -1978,8 +1982,7 @@ var AwacsApp = function ($) {
       }
       if (terrainSelected && interdictionValueSelected) {
         advIntDRMs.attachSection("#adv-int-modal");
-        advIntResolver.attachSection("#adv-int-modal")
-        return;
+        advIntResolver.attachSection("#adv-int-modal");
       }
     };
 
@@ -2034,7 +2037,7 @@ var AwacsApp = function ($) {
       var terrain = interdictionTerrainSelector.getSelection();
       var interdictValue = parseInt(interdictionValueSelector.getSelection());
 
-      var netResult = lookupInterdictionValue(terrain, interdictValue, roll)
+      var netResult = lookupInterdictionValue(terrain, interdictValue, roll);
       if (netResult === undefined) {
         netResult = "\u2014";
       }
@@ -2110,6 +2113,191 @@ var AwacsApp = function ($) {
     };
   })();
 
+  var strikeTerrainSelector = createModeSelector("Terrain", "strike-terrain-selector", [
+    {
+      'label': 'Marsh/Flat',
+      'name': 'flat'
+    },{
+      'label': 'Rough/Flat Woods/Rough Woods',
+      'name': 'rough'
+    },{
+      'label': 'Highland/Highland Woods',
+      'name': 'highland'
+    },{
+      'label': 'Mountain',
+      'name': 'mountain'
+    },{
+      'label': 'Urban',
+      'name': 'urban'
+    },{
+      'label': 'Air Defense Tracks',
+      'name': 'adf'
+    },{
+      'label': 'Hardened Target/Naval Unit',
+      'name': 'hardened'
+    }
+  ]);
+
+  var strikeTypeSelector = createModeSelector("Strike Type", "strike-type-selector",[
+    {
+      'label': 'Air strike',
+      'name': 'air'
+    },{
+      'label': 'Wild Weasel',
+      'name': 'weasel'
+    },{
+      'label': 'Helicopter',
+      'name': 'helo'
+    },{
+      'label': 'Naval strike',
+      'name': 'naval'
+    },{
+      'label': 'Supreme HQ',
+      'name': 'sup-hq'
+    },{
+      'label': 'US HQ',
+      'name': 'us-hq'
+    },{
+      'label': 'Other HQ',
+      'name': 'other-hq'
+    },{
+      'label': 'Scud',
+      'name': 'scud'
+    },{
+      'label': 'Ballistic Missile',
+      'name': 'missile'
+    },{
+      'label': 'Cruise Missile',
+      'name': 'cruise'
+    }
+  ]);
+
+  var airStrikeValueSelector = createModeSelector("Air Strike Value", "strike-value-selector", [
+    {
+      'label': '1',
+      'name': '1'
+    },{
+      'label': '2',
+      'name': '2'
+    },{
+      'label': '3',
+      'name': '3'
+    },{
+      'label': '4',
+      'name': '4'
+    },{
+      'label': '5',
+      'name': '5'
+    },{
+      'label': '6',
+      'name': '6'
+    }
+  ]);
+
+  var heloStrikeValueSelector = createModeSelector("Attack Helicopter Strike Value", "strike-value-selector", [
+    {
+      'label': '1',
+      'name': '1'
+    },{
+      'label': '2',
+      'name': '2'
+    }
+  ]);
+
+  var navalStrikeValueSelector = createModeSelector("Naval Strike Value", "strike-value-selector", [
+    {
+      'label': '1',
+      'name': '1'
+    },{
+      'label': '2',
+      'name': '2'
+    },{
+      'label': '3',
+      'name': '3'
+    }
+  ]);
+
+  var advStrikeMode = (function () {
+    var terrainSelected = false;
+    var strikeTypeSelected = false;
+    var strikeValueSelected = false;
+    var strikeValueTable = {
+      'air': airStrikeValueSelector,
+      'ww': undefined,
+      'helo': heloStrikeValueSelector,
+      'naval': navalStrikeValueSelector,
+      'sup-hq': undefined,
+      'us-hq': undefined,
+      'other-hq': undefined,
+      'scud': undefined,
+      'cruise': undefined,
+      'missile': undefined
+    };
+
+    var strikeTypeSelectedHandler = function () {
+      strikeTypeSelected = true;
+      strikeValueSelected = false;
+      drawRequiredSections();
+    };
+
+    var terrainSelectedHandler = function () {
+      terrainSelected = true;
+      strikeValueSelected = false;
+      drawRequiredSections();
+    };
+
+    var strikeValueSelectedHandler = function () {
+      strikeValueSelected = true;
+      drawRequiredSections();
+    };
+
+    var clearStrikeValueSelectors = function () {
+      $.each(strikeValueTable, function (index, value) {
+        if (value !== undefined) {
+          value.remove();
+        }
+      });
+    };
+
+    var drawRequiredSections = function () {
+      if (!$(".adv-strike-modal").length) {
+        $(".selected-mode").html("<div class=\"adv-strike-modal\" id=\"adv-strike-modal\">\n</div>\n");
+      }
+
+      if (!terrainSelected) {
+        strikeTerrainSelector.attachSection("#adv-strike-modal");
+        strikeTerrainSelector.attachListener(terrainSelectedHandler);
+      }
+      if (!strikeTypeSelected) {
+        strikeTypeSelector.attachSection("#adv-strike-modal");
+        strikeTypeSelector.attachListener(strikeTypeSelectedHandler);
+      }
+      if (terrainSelected && strikeTypeSelected && !strikeValueSelected) {
+        clearStrikeValueSelectors();
+        var strikeType = strikeTypeSelector.getSelection();
+        var strikeValueSelector = strikeValueTable[strikeType];
+        if (strikeValueSelector === undefined) {
+          strikeValueSelected = true;
+        } else {
+          strikeValueSelector.attachListener(strikeValueSelectedHandler);
+          strikeValueSelector.attachSection("#adv-strike-modal");
+        }
+      }
+      if (terrainSelected && strikeTypeSelected && strikeValueSelected) {
+        return;
+      }
+    };
+
+    return {
+      'init': function () {
+        terrainSelected = false;
+        strikeTypeSelected = false;
+        strikeValueSelected = false;
+        drawRequiredSections();
+      }
+    };
+  })();
+
   var rollDie = function (modifier) {
     if (modifier === undefined) {
       modifier = 0;
@@ -2135,6 +2323,8 @@ var AwacsApp = function ($) {
       advAdfMode.init();
     } else if (selectedMode === 'AdvInterdictMode') {
       advInterdictionMode.init();
+    } else if (selectedMode === 'AdvStrikeMode') {
+      advStrikeMode.init();
     }
   };
 
