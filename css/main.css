@@ -331,7 +331,7 @@ ul.floating-dropdown {
 }
 
 li.drop-down-choice {
-    padding: 5px 20px 4px;
+    padding: 10px 30px 10px;
     text-decoration: none;
     display: block;
     background-color: dodgerblue;
@@ -343,4 +343,42 @@ li.drop-down-choice:hover {
 
 .drop-down-visible {
     display: block;
+}
+
+ul.differential-holder {
+    list-style-type: none;
+    display: inline-table;
+    padding-top: 0;
+    margin-top: 0;
+}
+
+li.adv-air-combat-diff-box {
+    display: table-cell;
+    border: 1px solid black;
+    height: 60px;
+    width: 70px;
+    margin: 0;
+    cursor: pointer;
+    text-align: center;
+    vertical-align: middle;
+    padding: 0;
+    font-size: 12pt;
+    font-weight: bold;
+}
+
+ul.air-combat-range-selector-elements {
+    list-style-type: none;
+}
+
+li.air-combat-range-selector-element {
+    display: inline;
+    padding: 4pt 5pt;
+    cursor: pointer;
+    border-radius: 5pt;
+    border: 1px solid deepskyblue;
+}
+
+div.adv-air-combat-resolution {
+    margin-top: 20px;
+    padding-top: 5px;
 }

@@ -120,6 +120,27 @@ var AwacsApp = function ($) {
       signalListenersOfDrmChange();
     };
 
+    var dropNumberClickHandler = function () {
+      var myId = $(this).prop('id');
+      var idSplit = myId.split('-');
+      idSplit[idSplit.length - 1] = "options";
+      var parentId = idSplit.join('-');
+      var boxSelector = $("#" + parentId);
+      if (boxSelector.css('display') === 'none') {
+        boxSelector.css('display', 'block');
+      } else {
+        boxSelector.css('display', 'none');
+      }
+    };
+
+    var numberSelectedClickHandler = function () {
+      var splitId = $(this).prop('id').split('_');
+      var parentSelector = $("#" + splitId[0] + "-drop");
+      parentSelector.html(formatModifier(splitId[1]));
+      parentSelector.click();
+      parentSelector.change();
+    };
+
     var addChangeHandlers = function () {
       var arrayLength = drms.length;
       for (var i = 0; i < arrayLength; i++) {
@@ -130,31 +151,14 @@ var AwacsApp = function ($) {
         });
         if (drms[i]['type'] === 'drop') {
           var prefix = drms[i]['name'];
-          elementSelector.on('click', function () {
-            var myId = $(this).prop('id');
-            var idSplit = myId.split('-');
-            idSplit[idSplit.length - 1] = "options";
-            var parentId = idSplit.join('-');
-            var boxSelector = $("#" + parentId);
-            if (boxSelector.css('display') === 'none') {
-              boxSelector.css('display', 'block');
-            } else {
-              boxSelector.css('display', 'none');
-            }
-          });
+          elementSelector.on('click', dropNumberClickHandler);
           var minCount = drms[i]['min-count'];
           if (minCount === undefined) {
             minCount = 0;
           }
           var maxCount = drms[i]['max-count'];
           for (var j = minCount; j <= maxCount; j++) {
-            $("#" + prefix + '_' + j).on('click', function () {
-              var splitId = $(this).prop('id').split('_');
-              var parentSelector = $("#" + splitId[0] + "-drop");
-              parentSelector.html(formatModifier(splitId[1]));
-              parentSelector.click();
-              parentSelector.change();
-            });
+            $("#" + prefix + '_' + j).on('click', numberSelectedClickHandler);
           }
         }
       }
@@ -2644,6 +2648,299 @@ var AwacsApp = function ($) {
     };
   })();
 
+  var airCombatDifferentialSelector = (function () {
+    var differential = 0;
+    var listener;
+
+    var refreshDisplay = function () {
+      $(".adv-air-combat-diff-box").each(function (index, element) {
+        var selector = $(element);
+        var splitId = selector.prop('id').split('_');
+        if (parseInt(splitId[1]) === differential) {
+          selector.css('background-color', 'deepskyblue');
+        } else {
+          selector.css('background-color', 'transparent');
+        }
+      });
+    };
+
+    var clickHandler = function () {
+      var splitId = $(this).prop('id').split('_');
+      differential = parseInt(splitId[1]);
+      refreshDisplay();
+      if (listener !== undefined) {
+        listener();
+      }
+    };
+
+    var setupClickHandlers = function () {
+      $(".adv-air-combat-diff-box").on('click', clickHandler);
+    };
+
+    var formatNumber = function (num) {
+      var formatted = num.toString();
+      if (num >= 0) {
+        formatted = "+" + formatted;
+      }
+      return formatted;
+    };
+
+    var getHtml = function () {
+      var html = "<div class=\"adv-air-combat-diff-modal\" id=\"adv-air-combat-diff-modal\">\n" +
+        "<p class=\"heading\">Air Combat Differential (Attacker - Target)</p>\n" +
+        "<ul class=\"differential-holder\">";
+      for (var i = 4; i > -5; i--) {
+        html += "<li class=\"adv-air-combat-diff-box\" id=\"adv-air-combat-diff-box_" + i +"\">" +
+          formatNumber(i) + "</li>\n";
+      }
+      html += "</ul>\n</div>\n";
+      return html;
+    };
+
+    return {
+      'attachSection': function (selector) {
+        if (!$("#adv-air-combat-diff-modal").length) {
+          $(selector).append(getHtml());
+          setupClickHandlers();
+        }
+        refreshDisplay();
+      },
+      'attachListsner': function (l) {
+        listener = l;
+      },
+      'getDifferential': function () {
+        return differential;
+      },
+      'reset': function () {
+        differential = 0;
+        refreshDisplay();
+      }
+    };
+  })();
+
+  var airCombatCommonDrms = createDrms('air-combat-common', [
+    {
+      'desc': 'Storm (+3)',
+      'name': 'storm',
+      'value': 3,
+      'type': 'check',
+      'current': 0
+    }
+  ], 'Air Combat Common DRMs');
+
+  var airCombatStandDogDrms = createDrms('air-combat-stand-dog', [
+    {
+      'desc': 'Attack vs. (#) or 0 Air to Air Strength (-1)',
+      'name': 'candy-from-babies',
+      'value': -1,
+      'type': 'check',
+      'current': 0
+    },{
+      'desc': 'USAF F-15 with F-22 Support (-1)',
+      'name': 'f15-with-f22',
+      'value': -1,
+      'type': 'check',
+      'current': 0
+    },{
+      'desc': 'Non-US/CW/JPN/RU/PRC (+1)',
+      'name': 'weaklings',
+      'value': 1,
+      'type': 'check',
+      'current': 0
+    },{
+      'desc': 'Strike Aircraft firing (+2)',
+      'name': 'strike-plane-firing',
+      'value': 2,
+      'type': 'check',
+      'current': 0
+    }
+  ], 'Air Combat Stand-off and Dogfight DRMs');
+
+  var airCombatDogfightDrms = createDrms('air-combat-dog', [
+    {
+      'name': 'pilot-skills',
+      'type': 'drop',
+      'value': 1,
+      'min-count': -2,
+      'max-count': 1,
+      'desc': 'Pilot skill',
+      'current': 0
+    }
+  ], 'Air Combat Dogfight DRMs');
+
+  var airCombatRangeSelector = createModeSelector("Air Combat Range", "air-combat-range-selector", [
+    {
+      'label': 'Long-Range',
+      'name': 'long'
+    },{
+      'label': 'Stand-Off',
+      'name': 'stand'
+    },{
+      'label': 'Dogfight',
+      'name': 'dog'
+    }
+  ]);
+
+  var advAirCombatResolver = (function () {
+    var airCombatTable = {
+      '4': ['X', 'X', 'X', 'X', 'X', 'X', 'DA', 'DA', 'A', 'A', 'Ad/D', 'Ad/D'],
+      '3': ['X', 'X', 'X', 'X', 'X', 'DA', 'DA', 'A', 'A', 'Ad/D', 'Ad/D'],
+      '2': ['X', 'X', 'X', 'X', 'DA', 'DA', 'A', 'A', 'Ad/D', 'Ad/D'],
+      '1': ['X', 'X', 'X', 'DA', 'DA', 'A', 'A', 'Ad/D', 'Ad/D'],
+      '0': ['X', 'X', 'DA', 'DA', 'A', 'A', 'Ad/D', 'Ad/D'],
+      '-1': ['X', 'DA', 'DA', 'A', 'A', 'Ad/D', 'Ad/D'],
+      '-2': ['DA', 'DA', 'A', 'Ad/D', 'Ad/D'],
+      '-3': ['DA', 'A', 'Ad/D', 'Ad/D'],
+      '-4': ['A', 'Ad/D']
+    };
+    var currentMode;
+    var currentDrm = 0;
+    var result;
+    var dieRoll;
+
+    var resolveAirCombat = function () {
+      dieRoll = rollDie(currentDrm);
+
+      var roll = dieRoll['net-roll'];
+      if (roll < -2) {
+        roll = -2;
+      }
+      var differential = airCombatDifferentialSelector.getDifferential().toString();
+      var netResult = airCombatTable[differential][roll];
+      if (netResult === undefined) {
+        netResult = "\u2014";
+      }
+      if (netResult === 'Ad/D') {
+        if (currentMode === 'dog') {
+          netResult = "D (Ad/D is D in Dogfights)";
+        } else {
+          netResult = "Ad (Ad/D is Advantage in Long-Range and Stand-Off air combat)";
+        }
+      }
+      result = netResult;
+      updateResults();
+    };
+
+    var updateResults = function () {
+      if (result === undefined) {
+        return;
+      }
+      var html = "<p class=\"result-label\">Die Roll</p><p class=\"value\">" + dieRoll['raw-roll'] + "</p><br>\n" +
+        "<p class=\"result-label\">Net Roll</p><p class=\"value\">" + dieRoll['net-roll'] + "</p><br>\n" +
+        "<p class=\"result-label\">Effect</p><p class=\"value\">" + result + "</p>\n";
+      $("#adv-air-combat-result").html(html);
+    };
+
+    var getDrms = function () {
+      if (currentMode === 'long') {
+        return airCombatCommonDrms.sumNetDRM();
+      } else if (currentMode == 'stand') {
+        return airCombatCommonDrms.sumNetDRM() + airCombatStandDogDrms.sumNetDRM();
+      } else if (currentMode == 'dog') {
+        return airCombatCommonDrms.sumNetDRM() + airCombatStandDogDrms.sumNetDRM() +
+          airCombatDogfightDrms.sumNetDRM();
+      }
+    };
+
+    var updateDrmDisplay = function () {
+      currentDrm = getDrms();
+      var currentDrmString;
+      if (currentDrm < 0) {
+        currentDrmString = currentDrm.toString();
+      } else {
+        currentDrmString = "+" + currentDrm.toString();
+      }
+      $("#adv-air-combat-net-drm-value").html(currentDrmString);
+    };
+
+    var addResolutionHandler = function () {
+      $("#adv-air-combat-dice-roll-button").on('click', function () {
+        resolveAirCombat();
+      });
+    };
+
+    var resetResults = function () {
+      result = undefined;
+      $("#adv-air-combat-result").html("&nbsp;");
+    };
+
+    var drmChangeHandler = function () {
+      updateDrmDisplay();
+    };
+
+    var setupDrmListener = function () {
+      airCombatCommonDrms.attachListener(drmChangeHandler);
+      airCombatStandDogDrms.attachListener(drmChangeHandler);
+      airCombatDogfightDrms.attachListener(drmChangeHandler);
+    };
+
+    return {
+      'attachSection': function (selector, mode) {
+        if (mode !== currentMode) {
+          resetResults();
+        }
+        currentMode = mode;
+        if (!$('.adv-air-combat-resolution').length) {
+          var newHtml = "<div class=\"adv-air-combat-resolution modals adv-adf-modals\" id=\"adv-air-combat-resolution\">\n" +
+            "<p class=\"heading\">Air Combat Resolution</p>\n<div id=\"adv-air-combat-drm-display\" " +
+            "class=\"adv-air-combat-drm-display\">" +
+            "<p class=\"result-label\">Current Net DRM:</p><p class=\"value\" id=\"adv-air-combat-net-drm-value\">+0</p>" +
+            "</div><input type=\"button\" class=\"dice-roll-button\" " +
+            "id=\"adv-air-combat-dice-roll-button\" value=\"Roll Die\">\n<div class=\"adv-air-combat-result\" " +
+            "id=\"adv-air-combat-result\">&nbsp;</div></div>\n";
+          $(selector).append(newHtml);
+          addResolutionHandler();
+          setupDrmListener();
+        }
+        updateDrmDisplay();
+        updateResults();
+      },
+      'reset': function () {
+        resetResults();
+      },
+      'removeResolver': function () {
+        $("#adv-air-combat-resolution").remove();
+      }
+    };
+  })();
+
+  var advAirToAirMode = (function () {
+    var rangeSelected = false;
+
+    var rangeSelectedHandler = function () {
+      rangeSelected = true;
+      resetResults();
+      drawRequiredSections();
+    };
+
+    var resetResults = function () {
+    };
+
+    var drawRequiredSections = function () {
+      if (!$(".adv-air-combat-modal").length) {
+        $(".selected-mode").html("<div class=\"adv-air-combat-modal\" id=\"adv-air-combat-modal\">\n</div>\n");
+      }
+
+      airCombatDifferentialSelector.attachSection("#adv-air-combat-modal");
+      airCombatCommonDrms.attachSection("#adv-air-combat-modal");
+      airCombatStandDogDrms.attachSection("#adv-air-combat-modal");
+      airCombatDogfightDrms.attachSection("#adv-air-combat-modal");
+      airCombatRangeSelector.attachListener(rangeSelectedHandler);
+      airCombatRangeSelector.attachSection("#adv-air-combat-modal");
+
+      if (rangeSelected) {
+        advAirCombatResolver.attachSection("#adv-air-combat-modal", airCombatRangeSelector.getSelection());
+      }
+    };
+
+    return {
+      'init': function () {
+        rangeSelected = false;
+        drawRequiredSections();
+      }
+    };
+  })();
+
   var rollDie = function (modifier) {
     if (modifier === undefined) {
       modifier = 0;
@@ -2671,6 +2968,8 @@ var AwacsApp = function ($) {
       advInterdictionMode.init();
     } else if (selectedMode === 'AdvStrikeMode') {
       advStrikeMode.init();
+    } else if (selectedMode === 'AdvAirCombatMode') {
+      advAirToAirMode.init();
     }
   };
 
