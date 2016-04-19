@@ -2726,7 +2726,18 @@ var AwacsApp = function ($) {
       'type': 'check',
       'current': 0
     }
-  ], 'Air Combat Common DRMs');
+  ], 'Air Combat Common DRM');
+
+  var airCombatStandOffDrms = createDrms('air-combat-stand', [
+    {
+      'desc': 'Non-US/CW/JPN/RU/PRC (+1)',
+      'name': 'weaklings',
+      'value': 1,
+      'type': 'check',
+      'current': 0
+    }
+  ], 'Air Combat Stand-Off DRM');
+
 
   var airCombatStandDogDrms = createDrms('air-combat-stand-dog', [
     {
@@ -2739,12 +2750,6 @@ var AwacsApp = function ($) {
       'desc': 'USAF F-15 with F-22 Support (-1)',
       'name': 'f15-with-f22',
       'value': -1,
-      'type': 'check',
-      'current': 0
-    },{
-      'desc': 'Non-US/CW/JPN/RU/PRC (+1)',
-      'name': 'weaklings',
-      'value': 1,
       'type': 'check',
       'current': 0
     },{
@@ -2765,6 +2770,12 @@ var AwacsApp = function ($) {
       'max-count': 1,
       'desc': 'Pilot skill',
       'current': 0
+    },{
+      'desc': 'Overcast (+1)',
+      'name': 'overcast',
+      'value': 1,
+      'current': 0,
+      'type': 'check'
     }
   ], 'Air Combat Dogfight DRMs');
 
@@ -2835,7 +2846,8 @@ var AwacsApp = function ($) {
       if (currentMode === 'long') {
         return airCombatCommonDrms.sumNetDRM();
       } else if (currentMode == 'stand') {
-        return airCombatCommonDrms.sumNetDRM() + airCombatStandDogDrms.sumNetDRM();
+        return airCombatCommonDrms.sumNetDRM() + airCombatStandDogDrms.sumNetDRM() +
+          airCombatStandOffDrms.sumNetDRM();
       } else if (currentMode == 'dog') {
         return airCombatCommonDrms.sumNetDRM() + airCombatStandDogDrms.sumNetDRM() +
           airCombatDogfightDrms.sumNetDRM();
@@ -2870,6 +2882,7 @@ var AwacsApp = function ($) {
 
     var setupDrmListener = function () {
       airCombatCommonDrms.attachListener(drmChangeHandler);
+      airCombatStandOffDrms.attachListener(drmChangeHandler);
       airCombatStandDogDrms.attachListener(drmChangeHandler);
       airCombatDogfightDrms.attachListener(drmChangeHandler);
     };
@@ -2923,6 +2936,7 @@ var AwacsApp = function ($) {
 
       airCombatDifferentialSelector.attachSection("#adv-air-combat-modal");
       airCombatCommonDrms.attachSection("#adv-air-combat-modal");
+      airCombatStandOffDrms.attachSection("#adv-air-combat-modal");
       airCombatStandDogDrms.attachSection("#adv-air-combat-modal");
       airCombatDogfightDrms.attachSection("#adv-air-combat-modal");
       airCombatRangeSelector.attachListener(rangeSelectedHandler);
