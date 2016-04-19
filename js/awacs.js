@@ -2806,7 +2806,7 @@ var AwacsApp = function ($) {
         roll = -2;
       }
       var differential = airCombatDifferentialSelector.getDifferential().toString();
-      var netResult = airCombatTable[differential][roll];
+      var netResult = airCombatTable[differential][roll + 2];
       if (netResult === undefined) {
         netResult = "\u2014";
       }
