@@ -2950,6 +2950,10 @@ var AwacsApp = function ($) {
     return {
       'init': function () {
         rangeSelected = false;
+        airCombatCommonDrms.resetDRMs();
+        airCombatDogfightDrms.resetDRMs();
+        airCombatStandDogDrms.resetDRMs();
+        airCombatStandOffDrms.resetDRMs();
         drawRequiredSections();
       }
     };
